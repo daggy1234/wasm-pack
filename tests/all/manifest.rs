@@ -1,11 +1,11 @@
+use crate::utils::{self, fixture};
 use assert_cmd::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
-use utils::{self, fixture};
 use wasm_pack::command::build::Target;
 use wasm_pack::command::utils::get_crate_path;
-use wasm_pack::{self, license, manifest};
+use wasm_pack::{self, emoji, license, manifest};
 
 #[test]
 fn it_gets_the_crate_name_default_path() {
@@ -86,14 +86,18 @@ fn it_creates_a_package_json_default_path() {
     utils::manifest::read_package_json(&fixture.path, &out_dir).unwrap();
     let pkg = utils::manifest::read_package_json(&fixture.path, &out_dir).unwrap();
     assert_eq!(pkg.name, "js-hello-world");
+    assert_eq!(pkg.ty, "module");
     assert_eq!(pkg.repository.ty, "git");
     assert_eq!(
         pkg.repository.url,
-        "https://github.com/rustwasm/wasm-pack.git"
+        "https://github.com/wasm-bindgen/wasm-pack.git"
     );
-    assert_eq!(pkg.module, "js_hello_world.js");
+    assert_eq!(pkg.main, "js_hello_world.js");
     assert_eq!(pkg.types, "js_hello_world.d.ts");
-    assert_eq!(pkg.side_effects, false);
+    assert_eq!(
+        pkg.side_effects,
+        vec!["./js_hello_world.js", "./snippets/*"]
+    );
 
     let actual_files: HashSet<String> = pkg.files.into_iter().collect();
     let expected_files: HashSet<String> = [
@@ -122,7 +126,8 @@ fn it_creates_a_package_json_provided_path() {
     utils::manifest::read_package_json(&fixture.path, &out_dir).unwrap();
     let pkg = utils::manifest::read_package_json(&fixture.path, &out_dir).unwrap();
     assert_eq!(pkg.name, "js-hello-world");
-    assert_eq!(pkg.module, "js_hello_world.js");
+    assert_eq!(pkg.ty, "module");
+    assert_eq!(pkg.main, "js_hello_world.js");
 
     let actual_files: HashSet<String> = pkg.files.into_iter().collect();
     let expected_files: HashSet<String> = [
@@ -151,7 +156,8 @@ fn it_creates_a_package_json_provided_path_with_scope() {
     utils::manifest::read_package_json(&fixture.path, &out_dir).unwrap();
     let pkg = utils::manifest::read_package_json(&fixture.path, &out_dir).unwrap();
     assert_eq!(pkg.name, "@test/js-hello-world");
-    assert_eq!(pkg.module, "js_hello_world.js");
+    assert_eq!(pkg.ty, "module");
+    assert_eq!(pkg.main, "js_hello_world.js");
 
     let actual_files: HashSet<String> = pkg.files.into_iter().collect();
     let expected_files: HashSet<String> = [
@@ -183,7 +189,7 @@ fn it_creates_a_pkg_json_with_correct_files_on_node() {
     assert_eq!(pkg.repository.ty, "git");
     assert_eq!(
         pkg.repository.url,
-        "https://github.com/rustwasm/wasm-pack.git"
+        "https://github.com/wasm-bindgen/wasm-pack.git"
     );
     assert_eq!(pkg.main, "js_hello_world.js");
     assert_eq!(pkg.types, "js_hello_world.d.ts");
@@ -217,7 +223,7 @@ fn it_creates_a_pkg_json_with_correct_files_on_nomodules() {
     assert_eq!(pkg.repository.ty, "git");
     assert_eq!(
         pkg.repository.url,
-        "https://github.com/rustwasm/wasm-pack.git"
+        "https://github.com/wasm-bindgen/wasm-pack.git"
     );
     assert_eq!(pkg.browser, "js_hello_world.js");
     assert_eq!(pkg.types, "js_hello_world.d.ts");
@@ -248,14 +254,15 @@ fn it_creates_a_package_json_with_correct_files_when_out_name_is_provided() {
     utils::manifest::read_package_json(&fixture.path, &out_dir).unwrap();
     let pkg = utils::manifest::read_package_json(&fixture.path, &out_dir).unwrap();
     assert_eq!(pkg.name, "js-hello-world");
+    assert_eq!(pkg.ty, "module");
     assert_eq!(pkg.repository.ty, "git");
     assert_eq!(
         pkg.repository.url,
-        "https://github.com/rustwasm/wasm-pack.git"
+        "https://github.com/wasm-bindgen/wasm-pack.git"
     );
-    assert_eq!(pkg.module, "index.js");
+    assert_eq!(pkg.main, "index.js");
     assert_eq!(pkg.types, "index.d.ts");
-    assert_eq!(pkg.side_effects, false);
+    assert_eq!(pkg.side_effects, vec!["./index.js", "./snippets/*"]);
 
     let actual_files: HashSet<String> = pkg.files.into_iter().collect();
     let expected_files: HashSet<String> =
@@ -295,12 +302,27 @@ fn it_creates_a_package_json_with_correct_keys_when_types_are_skipped() {
     utils::manifest::read_package_json(&fixture.path, &out_dir).unwrap();
     let pkg = utils::manifest::read_package_json(&fixture.path, &out_dir).unwrap();
     assert_eq!(pkg.name, "js-hello-world");
+    assert_eq!(pkg.ty, "module");
     assert_eq!(pkg.repository.ty, "git");
     assert_eq!(
         pkg.repository.url,
-        "https://github.com/rustwasm/wasm-pack.git"
+        "https://github.com/wasm-bindgen/wasm-pack.git"
     );
-    assert_eq!(pkg.module, "js_hello_world.js");
+    assert_eq!(pkg.main, "js_hello_world.js");
+    assert_eq!(pkg.description, "so awesome rust+wasm package");
+    assert_eq!(pkg.license, "WTFPL");
+    assert_eq!(pkg.types, "");
+    assert_eq!(
+        pkg.side_effects,
+        vec!["./js_hello_world.js", "./snippets/*"]
+    );
+    assert_eq!(
+        pkg.keywords, None,
+        "keywords is not None: {:?}",
+        pkg.keywords,
+    );
+    assert_eq!(pkg.version, "0.1.0");
+    assert_eq!(pkg.module, "");
 
     let actual_files: HashSet<String> = pkg.files.into_iter().collect();
     let expected_files: HashSet<String> = [
@@ -339,9 +361,9 @@ fn it_creates_a_package_json_with_npm_dependencies_provided_by_wasm_bindgen() {
     assert_eq!(pkg.repository.ty, "git");
     assert_eq!(
         pkg.repository.url,
-        "https://github.com/rustwasm/wasm-pack.git"
+        "https://github.com/wasm-bindgen/wasm-pack.git"
     );
-    assert_eq!(pkg.module, "js_hello_world.js");
+    assert_eq!(pkg.main, "js_hello_world.js");
 
     let actual_files: HashSet<String> = pkg.files.into_iter().collect();
     let expected_files: HashSet<String> = [
@@ -381,9 +403,9 @@ fn it_sets_homepage_field_if_available_in_cargo_toml() {
             description = "so awesome rust+wasm package"
             license = "WTFPL"
             name = "homepage-field-test"
-            repository = "https://github.com/rustwasm/wasm-pack.git"
+            repository = "https://github.com/wasm-bindgen/wasm-pack.git"
             version = "0.1.0"
-            homepage = "https://rustwasm.github.io/wasm-pack/"
+            homepage = "https://wasm-bindgen.github.io/wasm-pack/"
 
             [lib]
             crate-type = ["cdylib"]
@@ -407,7 +429,7 @@ fn it_sets_homepage_field_if_available_in_cargo_toml() {
     let pkg = utils::manifest::read_package_json(&fixture.path, &out_dir).unwrap();
     assert_eq!(
         pkg.homepage,
-        Some("https://rustwasm.github.io/wasm-pack/".to_string()),
+        Some("https://wasm-bindgen.github.io/wasm-pack/".to_string()),
     );
 
     // When 'homepage' is unavailable
@@ -436,7 +458,7 @@ fn it_sets_keywords_field_if_available_in_cargo_toml() {
             description = "so awesome rust+wasm package"
             license = "WTFPL"
             name = "homepage-field-test"
-            repository = "https://github.com/rustwasm/wasm-pack.git"
+            repository = "https://github.com/wasm-bindgen/wasm-pack.git"
             version = "0.1.0"
             keywords = ["wasm"]
 
@@ -501,7 +523,7 @@ fn configure_wasm_bindgen_debug_incorrectly_is_error() {
             description = "so awesome rust+wasm package"
             license = "WTFPL"
             name = "whatever"
-            repository = "https://github.com/rustwasm/wasm-pack.git"
+            repository = "https://github.com/wasm-bindgen/wasm-pack.git"
             version = "0.1.0"
 
             [lib]
@@ -519,10 +541,7 @@ fn configure_wasm_bindgen_debug_incorrectly_is_error() {
         .arg("build")
         .arg("--dev")
         .assert()
-        .failure()
-        .stderr(predicates::str::contains(
-            "package.metadata.wasm-pack.profile.dev.wasm-bindgen.debug",
-        ));
+        .failure();
 }
 
 #[test]
@@ -538,7 +557,7 @@ fn parse_crate_data_returns_unused_keys_in_cargo_toml() {
             description = "so awesome rust+wasm package"
             license = "WTFPL"
             name = "whatever"
-            repository = "https://github.com/rustwasm/wasm-pack.git"
+            repository = "https://github.com/wasm-bindgen/wasm-pack.git"
             version = "0.1.0"
 
             [lib]
@@ -559,10 +578,11 @@ fn parse_crate_data_returns_unused_keys_in_cargo_toml() {
         .arg("build")
         .assert()
         .success()
-        .stderr(predicates::str::contains(
-        "[WARN]: :-) \"package.metadata.wasm-pack.profile.production\" is an unknown key and will \
+        .stderr(predicates::str::contains(format!(
+        "[WARN]: {} \"package.metadata.wasm-pack.profile.production\" is an unknown key and will \
          be ignored. Please check your Cargo.toml.",
-    ));
+        emoji::WARN
+    )));
 }
 
 #[test]
@@ -606,9 +626,9 @@ fn it_recurses_up_the_path_to_find_cargo_toml() {
             description = "so awesome rust+wasm package"
             license = "WTFPL"
             name = "recurse-for-manifest-test"
-            repository = "https://github.com/rustwasm/wasm-pack.git"
+            repository = "https://github.com/wasm-bindgen/wasm-pack.git"
             version = "0.1.0"
-            homepage = "https://rustwasm.github.io/wasm-pack/"
+            homepage = "https://wasm-bindgen.github.io/wasm-pack/"
         "#,
     );
     let path = get_crate_path(None).unwrap();
@@ -628,9 +648,9 @@ fn it_doesnt_recurse_up_the_path_to_find_cargo_toml_when_default() {
             description = "so awesome rust+wasm package"
             license = "WTFPL"
             name = "recurse-for-manifest-test"
-            repository = "https://github.com/rustwasm/wasm-pack.git"
+            repository = "https://github.com/wasm-bindgen/wasm-pack.git"
             version = "0.1.0"
-            homepage = "https://rustwasm.github.io/wasm-pack/"
+            homepage = "https://wasm-bindgen.github.io/wasm-pack/"
         "#,
     );
     let path = get_crate_path(Some(PathBuf::from("src"))).unwrap();

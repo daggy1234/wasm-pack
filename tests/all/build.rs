@@ -1,7 +1,7 @@
+use crate::utils;
 use assert_cmd::prelude::*;
 use std::fs;
 use std::path::Path;
-use utils;
 
 #[test]
 fn build_in_non_crate_directory_doesnt_panic() {
@@ -19,6 +19,36 @@ fn build_in_non_crate_directory_doesnt_panic() {
 fn it_should_build_js_hello_world_example() {
     let fixture = utils::fixture::js_hello_world();
     fixture.wasm_pack().arg("build").assert().success();
+}
+
+#[test]
+fn it_should_not_make_a_pkg_json_if_passed_no_pack() {
+    let fixture = utils::fixture::js_hello_world();
+    fixture
+        .wasm_pack()
+        .arg("build")
+        .arg("--no-pack")
+        .assert()
+        .success();
+
+    let pkg_path = fixture.path.join("pkg");
+    assert_eq!(pkg_path.join("package.json").exists(), false);
+    assert_eq!(pkg_path.join("README.md").exists(), false);
+    assert_eq!(pkg_path.join("licence").exists(), false);
+}
+
+#[test]
+fn it_should_build_js_hello_world_example_with_custom_target_dir() {
+    let fixture = utils::fixture::js_hello_world();
+    fixture
+        .wasm_pack()
+        .arg("build")
+        .arg("--target-dir")
+        .arg("target2")
+        .arg("--all-features")
+        .arg("--offline")
+        .assert()
+        .success();
 }
 
 #[test]
@@ -40,7 +70,7 @@ fn it_should_build_crates_in_a_workspace() {
                 description = "so awesome rust+wasm package"
                 license = "WTFPL"
                 name = "blah"
-                repository = "https://github.com/rustwasm/wasm-pack.git"
+                repository = "https://github.com/wasm-bindgen/wasm-pack.git"
                 version = "0.1.0"
 
                 [lib]
@@ -146,8 +176,9 @@ fn dash_dash_web_target_has_error_on_old_bindgen() {
     let output = String::from_utf8(cmd.get_output().stderr.clone()).unwrap();
 
     assert!(
-        output.contains("Please update your project to wasm-bindgen version >= 0.2.39"),
-        "Output did not contain 'Please update your project to wasm-bindgen version >= 0.2.39', output was {}",
+        output.contains("Please update your project to wasm-bindgen version >= 0.2.39")
+            || output.contains("older versions of the `wasm-bindgen` crate are incompatible with current versions of Rust"),
+        "Output did not contain 'Please update your project to wasm-bindgen version >= 0.2.39' or 'older versions of the `wasm-bindgen` crate are incompatible with current versions of Rust', output was {}",
         output
     );
 }
@@ -183,6 +214,21 @@ fn build_different_profiles() {
 }
 
 #[test]
+fn build_custom_profile() {
+    let profile_name = "my-custom-profile";
+    let fixture = utils::fixture::js_hello_world_with_custom_profile(profile_name);
+    fixture.install_local_wasm_bindgen();
+
+    fixture
+        .wasm_pack()
+        .arg("build")
+        .arg("--profile")
+        .arg(profile_name)
+        .assert()
+        .success();
+}
+
+#[test]
 fn build_with_and_without_wasm_bindgen_debug() {
     for debug in [true, false].iter().cloned() {
         let fixture = utils::fixture::Fixture::new();
@@ -197,7 +243,7 @@ fn build_with_and_without_wasm_bindgen_debug() {
                     description = "so awesome rust+wasm package"
                     license = "WTFPL"
                     name = "whatever"
-                    repository = "https://github.com/rustwasm/wasm-pack.git"
+                    repository = "https://github.com/wasm-bindgen/wasm-pack.git"
                     version = "0.1.0"
 
                     [lib]
@@ -299,7 +345,14 @@ fn build_force() {
 fn build_from_new() {
     let fixture = utils::fixture::not_a_crate();
     let name = "generated-project";
-    fixture.wasm_pack().arg("new").arg(name).assert().success();
+    fixture
+        .wasm_pack()
+        .arg("new")
+        .arg(name)
+        .arg("--template")
+        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("wasm-pack-template"))
+        .assert()
+        .success();
     let project_location = fixture.path.join(&name);
     fixture
         .wasm_pack()
@@ -322,7 +375,7 @@ fn build_crates_with_same_names() {
             description = "so awesome rust+wasm package"
             license = "WTFPL"
             name = "somename"
-            repository = "https://github.com/rustwasm/wasm-pack.git"
+            repository = "https://github.com/wasm-bindgen/wasm-pack.git"
             version = "0.1.0"
 
             [lib]
@@ -352,7 +405,7 @@ fn build_crates_with_same_names() {
             description = "so awesome rust+wasm package"
             license = "WTFPL"
             name = "somename"
-            repository = "https://github.com/rustwasm/wasm-pack.git"
+            repository = "https://github.com/wasm-bindgen/wasm-pack.git"
             version = "0.1.1"
 
             [lib]

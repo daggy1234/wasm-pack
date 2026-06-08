@@ -1,4 +1,5 @@
 use binary_install::Cache;
+use lazy_static::lazy_static;
 use std::env;
 use std::fs;
 use std::mem::ManuallyDrop;
@@ -131,7 +132,7 @@ impl Fixture {
                     description = "so awesome rust+wasm package"
                     license = "WTFPL"
                     name = "{}"
-                    repository = "https://github.com/rustwasm/wasm-pack.git"
+                    repository = "https://github.com/wasm-bindgen/wasm-pack.git"
                     version = "0.1.0"
 
                     [lib]
@@ -143,12 +144,55 @@ impl Fixture {
                     # bindgen downloaded is what we expect, and if `=` is
                     # removed then it will download whatever the newest version
                     # of wasm-bindgen is which may not be what's listed here.
-                    wasm-bindgen = "=0.2.74"
+                    wasm-bindgen = "=0.2.100"
 
                     [dev-dependencies]
                     wasm-bindgen-test = "0.3"
                 "#,
                 name
+            ),
+        )
+    }
+
+    /// Add a `Cargo.toml` with a correctly configured `wasm-bindgen`
+    /// dependency, `wasm-bindgen-test` dev-dependency, and `crate-type =
+    /// ["cdylib"]`.
+    ///
+    /// `name` is the crate's name.
+    /// `profile` is the custom profile name.
+    pub fn cargo_toml_with_custom_profile(&self, name: &str, profile_name: &str) -> &Self {
+        self.file(
+            "Cargo.toml",
+            &format!(
+                r#"
+                    [package]
+                    authors = ["The wasm-pack developers"]
+                    description = "so awesome rust+wasm package"
+                    license = "WTFPL"
+                    name = "{}"
+                    repository = "https://github.com/wasm-bindgen/wasm-pack.git"
+                    version = "0.1.0"
+
+                    [lib]
+                    crate-type = ["cdylib"]
+
+                    [dependencies]
+                    # Note that this uses and `=` dependency because there are
+                    # various tests which assert that the version of wasm
+                    # bindgen downloaded is what we expect, and if `=` is
+                    # removed then it will download whatever the newest version
+                    # of wasm-bindgen is which may not be what's listed here.
+                    wasm-bindgen = "=0.2.100"
+
+                    [dev-dependencies]
+                    wasm-bindgen-test = "0.3"
+
+                    [profile.{}]
+                    inherits = "release"
+                    opt-level = 'z'
+                    lto = true
+                "#,
+                name, profile_name
             ),
         )
     }
@@ -169,14 +213,14 @@ impl Fixture {
                     description = "so awesome rust+wasm package"
                     name = "{}"
                     license-file = "{}"
-                    repository = "https://github.com/rustwasm/wasm-pack.git"
+                    repository = "https://github.com/wasm-bindgen/wasm-pack.git"
                     version = "0.1.0"
 
                     [lib]
                     crate-type = ["cdylib"]
 
                     [dependencies]
-                    wasm-bindgen = "=0.2.21"
+                    wasm-bindgen = "=0.2.100"
 
                     [dev-dependencies]
                     wasm-bindgen-test = "=0.2.21"
@@ -221,7 +265,7 @@ impl Fixture {
 
         static INSTALL_WASM_BINDGEN: Once = Once::new();
         let cache = self.cache();
-        let version = "0.2.74";
+        let version = "0.2.100";
 
         let download = || {
             if let Ok(download) =
@@ -321,7 +365,9 @@ impl Fixture {
     }
 
     pub fn cache(&self) -> Cache {
-        Cache::at(&self.cache_dir())
+        let cache_dir = self.cache_dir();
+        fs::create_dir_all(&cache_dir).unwrap();
+        Cache::at(&cache_dir)
     }
 
     /// The `step_install_wasm_bindgen` and `step_run_wasm_bindgen` steps only
@@ -344,10 +390,16 @@ impl Fixture {
     /// Get a `wasm-pack` command configured to run in this fixure's temp
     /// directory and using the test cache.
     pub fn wasm_pack(&self) -> Command {
-        use assert_cmd::prelude::*;
-        let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+        use assert_cmd::cargo;
+
+        let mut cmd = Command::new(cargo::cargo_bin!(env!("CARGO_PKG_NAME")));
+
         cmd.current_dir(&self.path);
         cmd.env("WASM_PACK_CACHE", self.cache_dir());
+
+        // Some of the tests assume that Cargo's output does not contain colors.
+        cmd.env_remove("CARGO_TERM_COLOR");
+
         cmd
     }
 
@@ -397,6 +449,15 @@ pub fn js_hello_world() -> Fixture {
     fixture
 }
 
+pub fn js_hello_world_with_custom_profile(profile_name: &str) -> Fixture {
+    let fixture = Fixture::new();
+    fixture
+        .readme()
+        .cargo_toml_with_custom_profile("js-hello-world", profile_name)
+        .hello_world_src_lib();
+    fixture
+}
+
 pub fn no_cdylib() -> Fixture {
     let fixture = Fixture::new();
     fixture.readme().hello_world_src_lib().file(
@@ -407,7 +468,7 @@ pub fn no_cdylib() -> Fixture {
             description = "so awesome rust+wasm package"
             license = "WTFPL"
             name = "foo"
-            repository = "https://github.com/rustwasm/wasm-pack.git"
+            repository = "https://github.com/wasm-bindgen/wasm-pack.git"
             version = "0.1.0"
 
             # [lib]
@@ -578,7 +639,7 @@ pub fn transitive_dependencies() -> Fixture {
             description = "so awesome rust+wasm package"
             license = "WTFPL"
             name = "main_project"
-            repository = "https://github.com/rustwasm/wasm-pack.git"
+            repository = "https://github.com/wasm-bindgen/wasm-pack.git"
             version = "0.1.0"
 
             [lib]
@@ -628,7 +689,7 @@ pub fn transitive_dependencies() -> Fixture {
             description = "so awesome rust+wasm package"
             license = "WTFPL"
             name = "project_a"
-            repository = "https://github.com/rustwasm/wasm-pack.git"
+            repository = "https://github.com/wasm-bindgen/wasm-pack.git"
             version = "0.1.0"
 
             [lib]
@@ -678,7 +739,7 @@ pub fn transitive_dependencies() -> Fixture {
             description = "so awesome rust+wasm package"
             license = "WTFPL"
             name = "project_b"
-            repository = "https://github.com/rustwasm/wasm-pack.git"
+            repository = "https://github.com/wasm-bindgen/wasm-pack.git"
             version = "0.1.0"
 
             [lib]

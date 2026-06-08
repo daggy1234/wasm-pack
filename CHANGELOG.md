@@ -2,13 +2,675 @@
 
 ## 🤍 Unreleased
 
+- ### 🤕 Fixes
+
+  - **Use prebuilt wasm-bindgen binary on macOS aarch64 - [guybedford], [pull/1585]**
+
+    Previously wasm-pack built `wasm-bindgen-cli` from source on Apple Silicon. The
+    prebuilt `aarch64-apple-darwin` release is now used directly.
+
+    [pull/1585]: https://github.com/wasm-bindgen/wasm-pack/pull/1585
+
+## 🌷 0.15.0
+
+- ### ✨ Features
+
+  - **Add wasm64-unknown-unknown target support - [audreyt], [pull/1553]**
+
+    Parameterizes the target triple in `cargo_build_wasm()` and `cargo_build_wasm_tests()`, extracts `--target` from extra options, adds `--enable-memory64` to wasm-opt args for wasm64 targets, and dynamically constructs the `CARGO_TARGET_*_RUNNER` env var from the target triple.
+
+    [pull/1553]: https://github.com/wasm-bindgen/wasm-pack/pull/1553
+    [audreyt]: https://github.com/audreyt
+
+  - **Add `--panic-unwind` flag to build and test commands - [guybedford], [pull/1572]**
+
+    [pull/1572]: https://github.com/wasm-bindgen/wasm-pack/pull/1572
+
+  - **Move `wasm-pack-template` into the repo - [guybedford], [pull/1573]**
+
+    Vendors the project template directly into this repository so `wasm-pack new` no longer depends on a separate external template repo.
+
+    [pull/1573]: https://github.com/wasm-bindgen/wasm-pack/pull/1573
+
+- ### 🤕 Fixes
+
+  - **Replace deprecated `binary-install` and add release auto-publish - [guybedford], [pull/1579]**
+
+    The 0.14.0 npm package shipped with the old `drager/wasm-pack` release URL and was never republished after the repository moved, so `npm install -g wasm-pack` failed with a 404. This inlines the install/run logic into `npm/binary.js`, drops the deprecated `binary-install` dependency (which pulled in unmaintained `rimraf@3`, `glob@7`, `inflight`, and `tar@6`), promotes `tar` to a real dependency, and adds release workflow automation so the npm package no longer requires a manual `npm publish`.
+
+    [pull/1579]: https://github.com/wasm-bindgen/wasm-pack/pull/1579
+
+  - **Make `init.sh` POSIX-compatible and stop mangling `$VERSION` - [guybedford], [pull/1578]**
+
+    [pull/1578]: https://github.com/wasm-bindgen/wasm-pack/pull/1578
+    [guybedford]: https://github.com/guybedford
+
+  - **Add trailing newline in `package.json` - [joaofreires], [pull/1162]**
+
+    [pull/1162]: https://github.com/wasm-bindgen/wasm-pack/pull/1162
+    [joaofreires]: https://github.com/joaofreires
+
+  - **Fix `drager` → `wasm-bindgen` in URLs - [akesling], [pull/1571]**
+
+    [pull/1571]: https://github.com/wasm-bindgen/wasm-pack/pull/1571
+    [akesling]: https://github.com/akesling
+
+- ### 🛠️ Maintenance
+
+  - **Bump follow-redirects from 1.15.11 to 1.16.0 in /npm - [dependabot], [pull/1565]**
+
+    [pull/1565]: https://github.com/wasm-bindgen/wasm-pack/pull/1565
+
+  - **Bump rustls-webpki from 0.103.9 to 0.103.13 - [dependabot], [pull/1570]**
+
+    [pull/1570]: https://github.com/wasm-bindgen/wasm-pack/pull/1570
+
+  - **Bump brace-expansion from 1.1.12 to 1.1.14 in /npm - [dependabot], [pull/1574]**
+
+    [pull/1574]: https://github.com/wasm-bindgen/wasm-pack/pull/1574
+
+  - **Bump tar from 0.4.44 to 0.4.45 - [dependabot], [pull/1559]**
+
+    [pull/1559]: https://github.com/wasm-bindgen/wasm-pack/pull/1559
+
+  - **Bump time from 0.3.45 to 0.3.47 - [dependabot], [pull/1549]**
+
+    [pull/1549]: https://github.com/wasm-bindgen/wasm-pack/pull/1549
+
+  - **Bump minimatch from 3.1.2 to 3.1.5 in /npm - [dependabot], [pull/1555]**
+
+    [pull/1555]: https://github.com/wasm-bindgen/wasm-pack/pull/1555
+
+- ### 📖 Documentation
+
+  - **Update documentation and references to the new GitHub repo - [qinyuhang], [pull/1567]**
+
+    [pull/1567]: https://github.com/wasm-bindgen/wasm-pack/pull/1567
+
+  - **Fix typo in prerequisites documentation - [pRizz], [pull/1545]**
+
+    [pull/1545]: https://github.com/wasm-bindgen/wasm-pack/pull/1545
+    [pRizz]: https://github.com/pRizz
+
+## 🌻 0.14.0
+
+- ### ✨ Features
+
+  - **Support arbitrary wasm targets (WASI support) - [RReverser], [pull/1524]**
+
+    Allows building for targets other than wasm32-unknown-unknown, enabling WASI and other custom wasm targets.
+
+    [pull/1524]: https://github.com/drager/wasm-pack/pull/1524
+    [RReverser]: https://github.com/RReverser
+
+  - **macOS ARM (aarch64-apple-darwin) build support - [kaleidawave], [pull/1529]**
+
+    Adds native Apple Silicon support in release builds and NPM package.
+
+    [pull/1529]: https://github.com/drager/wasm-pack/pull/1529
+    [kaleidawave]: https://github.com/kaleidawave
+
+  - **Allow `--split-linked-modules` flag for wasm-bindgen - [codeart1st], [pull/1443]**
+
+    [pull/1443]: https://github.com/drager/wasm-pack/pull/1443
+    [codeart1st]: https://github.com/codeart1st
+
+  - **Custom build profile support - [rafaelbeckel], [pull/1428]**
+
+    Allows using custom cargo profiles via `--profile`.
+
+    [pull/1428]: https://github.com/drager/wasm-pack/pull/1428
+    [rafaelbeckel]: https://github.com/rafaelbeckel
+
+- ### 🤕 Fixes
+
+  - **Fix NPM package download URL - [qinyuhang], [pull/1543]**
+
+    [pull/1543]: https://github.com/drager/wasm-pack/pull/1543
+    [qinyuhang]: https://github.com/qinyuhang
+
+  - **Filter build artifacts to only .wasm files - [drager], [pull/1535]**
+
+    [pull/1535]: https://github.com/drager/wasm-pack/pull/1535
+
+  - **Handle undefined VERSION in installer script - [BrianHung], [pull/1512]**
+
+    [pull/1512]: https://github.com/drager/wasm-pack/pull/1512
+    [BrianHung]: https://github.com/BrianHung
+
+  - **Fix it_gets_wasm_bindgen_version test - [mshroyer], [pull/1509]**
+
+    [pull/1509]: https://github.com/drager/wasm-pack/pull/1509
+    [mshroyer]: https://github.com/mshroyer
+
+- ### 🛠️ Maintenance
+
+  - **Update dependencies to latest versions - [drager], [pull/1536]**
+
+    [pull/1536]: https://github.com/drager/wasm-pack/pull/1536
+
+  - **Security workflow permissions fixes - [drager]**
+
+  - **Bump ring from 0.17.8 to 0.17.14 - [dependabot], [pull/1516]**
+
+    [pull/1516]: https://github.com/drager/wasm-pack/pull/1516
+
+  - **Bump brace-expansion from 1.1.11 to 1.1.12 in /npm - [dependabot], [pull/1515]**
+
+    [pull/1515]: https://github.com/drager/wasm-pack/pull/1515
+
+  - **Bump rustls from 0.23.16 to 0.23.18 - [dependabot], [pull/1451]**
+
+    [pull/1451]: https://github.com/drager/wasm-pack/pull/1451
+    [dependabot]: https://github.com/apps/dependabot
+
+  - **Fix tar vulnerability (CVE-2026-23745) in npm package**
+
+    Override tar dependency to ^7.5.3 to fix arbitrary file overwrite and symlink poisoning vulnerability ([GHSA-8qq5-rm4j-mr97]).
+
+    [GHSA-8qq5-rm4j-mr97]: https://github.com/advisories/GHSA-8qq5-rm4j-mr97
+
+  - **Fix axios vulnerabilities in npm package**
+
+    Override axios dependency to ^0.30.0 to fix SSRF/credential leakage via absolute URL and XSRF-TOKEN leakage (CSRF) vulnerabilities.
+
+- ### 📖 Documentation
+
+  - **Update documentation links to drager's repo - [yutannihilation], [pull/1513]**
+
+    [pull/1513]: https://github.com/drager/wasm-pack/pull/1513
+    [yutannihilation]: https://github.com/yutannihilation
+
+  - **Document prerequisites for webdriver tests - [mshroyer], [pull/1509]**
+
+## ☀️ 0.13.1
+
+- ### ✨ Features
+
+  - **Requests using proxy settings from env - [jjyr], [pull/1438]**
+
+    This enables ureq to use proxy settings from env, it solves lots of pain in network restricted environments.
+
+    [pull/1438]: https://github.com/rustwasm/wasm-pack/pull/1438
+    [jjyr]: https://github.com/jjyr
+
+- ### 🤕 Fixes
+
+  - **Update binary-install to v0.4.1 - [drager], [pull/1407]**
+
+    Release v0.4.0 of binary-install introduced a regression that caused failures on some platforms. This release fixes that regression.
+
+    [pull/1407]: https://github.com/rustwasm/wasm-pack/pull/1407
+    [drager]: https://github.com/drager
+
+  - ** Allow npm binary upgrades - [net], [pull/1439]**
+
+    Fixes an issue where upgrading `wasm-pack` via NPM would not update the underlying binary.
+    Previously, the binary was stored in the `binary-install` package's directory without versioning, causing version upgrades to silently fail as the old binary continued to be used.
+    The binary is now stored in `node_modules/wasm-pack/binary/`, ensuring proper version updates when upgrading the package.
+
+    **Before:** Upgrading from `0.12.1` to `0.13.0` would continue using the `0.12.1` binary
+    **After:** Each `wasm-pack` version manages its own binary, enabling proper version upgrades
+
+    [pull/1439]: https://github.com/rustwasm/wasm-pack/pull/1439
+    [net]: https://github.com/net
+
+- ### 🛠️ Maintenance
+
+  - ** Remove unmaintained dependency atty in favor of stdlib - [mariusvniekerk], [pull/1436]**
+
+    [pull/1436]: https://github.com/rustwasm/wasm-pack/pull/1436
+    [mariusvniekerk]: https://github.com/mariusvniekerk
+
+## ☀️ 0.13.0
+
+- ### ✨ Features
+
+  - **Add option to skip optimization with wasm-opt - [sisou], [pull/1321]**
+
+    This feature introduces the `--no-opt` option to wasm-pack, providing a significant improvement in build efficiency for projects requiring multiple wasm-pack executions.
+
+    [pull/1321]: https://github.com/rustwasm/wasm-pack/pull/1321
+    [sisou]: https://github.com/sisou
+
+  - **Add support geckodriver for linux-aarch64 - [EstebanBorai], [pull/1371]**
+
+    Introduces support to download Geckodriver in Linux aarch64.
+
+    [pull/1371]: https://github.com/rustwasm/wasm-pack/pull/1371
+    [EstebanBorai]: https://github.com/EstebanBorai
+
+  - **Add wasm-opt linux aarch64 condition - [dkristia], [issue/1392], [pull/1393]**
+
+    A linux aarch64 build for wasm-opt exists in the newest binaryen versions.
+
+    [issue/1392]: https://github.com/rustwasm/wasm-pack/issues/1392
+    [pull/1393]: https://github.com/rustwasm/wasm-pack/pull/1393
+    [dkristia]: https://github.com/dkristia
+
+- ### 🤕 Fixes
+
+  - **Fix passing relative paths to cargo - [dfaust], [issue/704], [issue/1156], [issue/1252], [pull/1331]**
+
+    When building a crate located in a sub-directory, relative paths, passed as extra options to cargo (like `--target-dir`), are now handled correctly.
+
+    [issue/704]: https://github.com/rustwasm/wasm-pack/issues/704
+    [issue/1156]: https://github.com/rustwasm/wasm-pack/issues/1156
+    [issue/1252]: https://github.com/rustwasm/wasm-pack/issues/1252
+    [pull/1331]: https://github.com/rustwasm/wasm-pack/pull/1331
+    [dfaust]: https://github.com/dfaust
+
+  - **Rewrite wasm_target to use target-libdir - [daidoji], [issue/1342], [pull/1343]**
+
+    Rewritten wasm_target to use target libdir from the rustc tool rather than looking through sysroot. This is to accomodate non-rustup installations.
+
+    [issue/1342]: https://github.com/rustwasm/wasm-pack/issues/1342
+    [pull/1343]: https://github.com/rustwasm/wasm-pack/pull/1343
+    [daidoji]: https://github.com/daidoji
+
+  - **Declare ES module in package.json - [gthb], [issue/1039], [pull/1061]**
+
+    In bundler mode, generate package.json with "type": "module" and use the "main" attribute instead of the "module" attribute.
+
+    This change makes the built ES module palatable to Node.js (when run with --experimental-vm-modules --experimental-wasm-modules),
+    while it remains also palatable to webpack as illustrated in webpack/webpack#14313
+    (where the pkg subfolder is generated with wasm-pack built with this change).
+    This resolves the headache of using a wasm-pack-built package in a library that one needs to both run directly in Node and include in a webpack build.
+
+    [issue/1039]: https://github.com/rustwasm/wasm-pack/issues/1039
+    [pull/1061]: https://github.com/rustwasm/wasm-pack/pull/1061
+    [gthb]: https://github.com/gthb
+
+  - **Use new chromdriver endpoint and fix CI - [Myriad-Dreamin], [kade-robertson], [issue/1315], [issue/1390], [pull/1325], [pull/1391]**
+
+    [issue/1315]: https://github.com/rustwasm/wasm-pack/issues/1315
+    [issue/1390]: https://github.com/rustwasm/wasm-pack/issues/1390
+    [pull/1325]: https://github.com/rustwasm/wasm-pack/pull/1325
+    [pull/1391]: https://github.com/rustwasm/wasm-pack/pull/1391
+    [Myriad-Dreamin]: https://github.com/Myriad-Dreamin
+    [kade-robertson]: https://github.com/kade-robertson
+
+  - **Add mingw support to npm package - [nathaniel-daniel], [issue/1354], [issue/1359], [pull/1363]**
+
+    Fixes the NPM package's platform detection for mingw.
+
+    [issue/1354]: https://github.com/rustwasm/wasm-pack/issues/1354
+    [issue/1359]: https://github.com/rustwasm/wasm-pack/issues/1359
+    [pull/1363]: https://github.com/rustwasm/wasm-pack/pull/1363
+    [nathaniel-daniel]: https://github.com/nathaniel-daniel
+
+  - **pkg-dir option for pack and publish commands - [danielronnkvist], [issue/1369], [pull/1370]**
+
+    To be able to use these commands when the output directory option to the build command isn't the default pkg.
+
+    [issue/1369]: https://github.com/rustwasm/wasm-pack/issues/1369
+    [pull/1370]: https://github.com/rustwasm/wasm-pack/pull/1370
+    [danielronnkvist]: https://github.com/danielronnkvist
+
+  - **Optimize out-dir display - [ahaoboy], [issue/1395], [pull/1396]**
+
+    Optimize out-dir display.
+
+    from:
+
+    `[INFO]: 📦 Your wasm pkg is ready to publish at /root/code/fib-wasm/fib-rs/../fib-wasm/wasm.`
+
+    to:
+
+    `[INFO]: 📦 Your wasm pkg is ready to publish at /root/code/fib-wasm/fib-wasm/wasm.`
+
+    [issue/1395]: https://github.com/rustwasm/wasm-pack/issues/1395
+    [pull/1396]: https://github.com/rustwasm/wasm-pack/pull/1396
+    [ahaoboy]: https://github.com/ahaoboy
+
+- ### 🛠️ Maintenance
+
+  - **Fix error and warnings in install script - [lucashorward], [issue/1159], [issue/1217], [issue/1283], [pull/1320]**
+
+    [issue/1159]: https://github.com/rustwasm/wasm-pack/issues/1159
+    [issue/1217]: https://github.com/rustwasm/wasm-pack/issues/1217
+    [issue/1283]: https://github.com/rustwasm/wasm-pack/issues/1283
+    [pull/1320]: https://github.com/rustwasm/wasm-pack/pull/1320
+    [lucashorward]: https://github.com/lucashorward
+
+  - **Bump follow-redirects from 1.14.9 to 1.15.6 in /npm - [dependabot], [pull/1375]**
+
+    [pull/1375]: https://github.com/rustwasm/wasm-pack/pull/1375
+
+  - **Bump rustls-webpki from 0.100.1 to 0.100.2 - [dependabot], [pull/1323]**
+
+    [pull/1341]: https://github.com/rustwasm/wasm-pack/pull/1341
+
+  - **Bump rustix from 0.37.20 to 0.37.25 - [dependabot], [pull/1341]**
+
+    [pull/1323]: https://github.com/rustwasm/wasm-pack/pull/1323
+    [dependabot]: https://github.com/apps/dependabot
+
+  - **Bump rustls from 0.21.9 to 0.21.11 - [dependabot], [pull/1385]**
+
+    [pull/1385]: https://github.com/rustwasm/wasm-pack/pull/1385
+    [dependabot]: https://github.com/apps/dependabot
+
+  - **Bump tar from 6.1.11 to 6.2.1 in /npm - [dependabot], [pull/1379]**
+
+    [pull/1379]: https://github.com/rustwasm/wasm-pack/pull/1379
+    [dependabot]: https://github.com/apps/dependabot
+
+- ### 📖 Documentation
+
+  - **Fix typo in README - [Lionelf329], [pull/1368]**
+
+    [pull/1268]: https://github.com/rustwasm/wasm-pack/pull/1368
+    [Lionelf329]: https://github.com/Lionelf329
+
+  - **Add a description of build --target deno - [puxiao], [pull/1344]**
+
+    [pull/1344]: https://github.com/rustwasm/wasm-pack/pull/1344
+    [puxiao]: https://github.com/puxiao
+
+  - **Document deno in build target - [sigmaSd], [pull/1348]**
+
+    [pull/1348]: https://github.com/rustwasm/wasm-pack/pull/1348
+    [sigmaSd]: https://github.com/sigmaSd
+
+  - **Fix local navigation backing one step too far in docs - [SamuSoft], [pull/1387]**
+
+    [pull/1387]: https://github.com/rustwasm/wasm-pack/pull/1387
+    [SamuSoft]: https://github.com/SamuSoft
+
+  - **Add --target web to quick start build command - [josephrocca], [pull/1367]**
+
+    [pull/1367]: https://github.com/rustwasm/wasm-pack/pull/1367
+    [josephrocca]: https://github.com/josephrocca
+
+## ☀️ 0.12.1
+
+- ### 🤕 Fixes
+
+  - **Restore --version command - [lynn], [issue/1301], [pull/1305]**
+
+    The --version command got lost in space in v0.12.0. It's now brought back!
+
+    [issue/1301]: https://github.com/rustwasm/wasm-pack/issues/1301
+    [pull/1305]: https://github.com/rustwasm/wasm-pack/pull/1305
+    [lynn]: https://github.com/lynn
+
+  - **Fix value parser for Option<PathBuf> - [Myriad-Dreamin], [issue/1304], [pull/1307]**
+
+    A value parser for OsString cannot parse a command line argument for Option<PathBuf>,
+    which let it failed to specify paths for pack, publish and test commands, this faulty behavior
+    was introduced in v0.12.0.
+
+    [issue/1304]: https://github.com/rustwasm/wasm-pack/issues/1304
+    [pull/1307]: https://github.com/rustwasm/wasm-pack/pull/1307
+    [Myriad-Dreamin]: https://github.com/Myriad-Dreamin
+
+## ☀️ 0.12.0
+
+- ### ✨ Features
+
+  - **Add --no-pack flag to build command - [hamza1311], [ashleygwilliams], [issue/691], [issue/811], [pull/695], [pull/1291]**
+
+    When calling wasm-pack build a user can optionally pass --no-pack and wasm-pack will build your wasm, generate js, and not build a package.json.
+
+    [issue/691]: https://github.com/rustwasm/wasm-pack/issues/691
+    [issue/811]: https://github.com/rustwasm/wasm-pack/issues/811
+    [pull/695]: https://github.com/rustwasm/wasm-pack/pull/695
+    [pull/1291]: https://github.com/rustwasm/wasm-pack/pull/1291
+    [ashleygwilliams]: https://github.com/ashleygwilliams
+
+  - **Add wasmbindgen option: omit_default_module_path - [matthiasgeihs], [pull/1272]**
+
+    Adds an option to call wasm-bindgen with --omit_default_module_path.
+
+    [pull/1272]: https://github.com/rustwasm/wasm-pack/pull/1272
+    [matthiasgeihs]: https://github.com/matthiasgeihs
+
+- ### 🤕 Fixes
+
+  - **Add HTTP header USER-AGENT - [LeviticusNelson], [issue/1266], [pull/1285]**
+
+    We encountered some issues when we didn't send an User-Agent. This is now fixed.
+
+    [issue/1266]: https://github.com/rustwasm/wasm-pack/issues/1266
+    [pull/1285]: https://github.com/rustwasm/wasm-pack/pull/1285
+    [LeviticusNelson]: https://github.com/LeviticusNelson
+
+  - **Replace curl with ureq - [hamza1311], [issue/650], [issue/823], [issue/997], [issue/1079], [issue/1203], [issue/1234], [issue/1281], [pull/1290]**
+
+    The HTTP client is now pure Rust. Removes the dependency of openssl which have caused a lot of issues for people using wasm-pack on various distributions.
+
+    [issue/650]: https://github.com/rustwasm/wasm-pack/issues/650
+    [issue/823]: https://github.com/rustwasm/wasm-pack/issues/823
+    [issue/997]: https://github.com/rustwasm/wasm-pack/issues/997
+    [issue/1079]: https://github.com/rustwasm/wasm-pack/issues/1079
+    [issue/1203]: https://github.com/rustwasm/wasm-pack/issues/1203
+    [issue/1234]: https://github.com/rustwasm/wasm-pack/issues/1234
+    [issue/1281]: https://github.com/rustwasm/wasm-pack/issues/1281
+    [pull/1290]: https://github.com/rustwasm/wasm-pack/pull/1290
+    [hamza1311]: https://github.com/hamza1311
+
+  - **Update binary-install to 0.2.0. binary-install replaced curl with ureq - [drager]**
+
+    See [PR](https://github.com/rustwasm/binary-install/pull/24) in binary-install repo for more information.
+
+    [drager]: https://github.com/drager
+
+  - **Remove --always-auth from npm login - [EstebanBorai], [pull/1288]**
+
+    npm login doesn't support --always-auth anymore, instead it is under the adduser subcommand.
+
+    [pull/1288]: https://github.com/rustwasm/wasm-pack/pull/1288
+    [EstebanBorai]: https://github.com/EstebanBorai
+
+  - **Turn off cargo colors during log level test - [dtolnay], [pull/1294]**
+
+    [pull/1294]: https://github.com/rustwasm/wasm-pack/pull/1294
+    [dtolnay]: https://github.com/dtolnay
+
+  - **Fix getting the target-dir in wasm_bindgen_build - [tomasol], [issue/1278], [pull/1279]**
+
+    Fixes a wasm-pack panic if --target-dir was supplied (and arguments are not sorted).
+
+    [issue/1278]: https://github.com/rustwasm/wasm-pack/issues/1278
+    [pull/1279]: https://github.com/rustwasm/wasm-pack/pull/1279
+    [tomasol]: https://github.com/tomasol
+
+  - **Respect package.readme in Cargo.toml - [heaths], [issue/1215], [pull/1298], [pull/1216]**
+
+    wasm-pack now respects specifying readme=false:
+
+    ```toml
+    [package]
+    readme = false
+    ```
+
+    [issue/1215]: https://github.com/rustwasm/wasm-pack/issues/1215
+    [pull/1298]: https://github.com/rustwasm/wasm-pack/pull/1298
+    [pull/1216]: https://github.com/rustwasm/wasm-pack/pull/1216
+    [heaths]: https://github.com/heaths
+
+- ### 📖 Documentation
+
+  - **Don't hide install options behind link - [oyamauchi], [issue/355], [pull/1242]**
+
+    [issue/355]: https://github.com/rustwasm/wasm-pack/issues/355
+    [pull/1242]: https://github.com/rustwasm/wasm-pack/issues/1242
+    [oyamauchi]: https://github.com/oyamauchi
+
+- ### 🛠️ Maintenance
+
+  - **Bump cargo-generate version to 0.18.2 - [sassman], [issue/1245] [pull/1269]**
+
+    [issue/1245]: https://github.com/rustwasm/wasm-pack/issues/1245
+    [pull/1269]: https://github.com/rustwasm/wasm-pack/pull/1269
+    [sassman]: https://github.com/sassman
+
+  - **Replace unmaintained actions-rs/toolchain action in CI workflows - [striezel], [pull/1246]**
+
+    Now we are using https://github.com/dtolnay/rust-toolchain instead.
+
+    [pull/1246]: https://github.com/rustwasm/wasm-pack/pull/1246
+    [striezel]: https://github.com/striezel
+
+  - **Update several dependencies - [hamza1311], [pull/1292]**
+
+    Updated clap, toml, predicates and serial_test to their latest versions.
+
+    [pull/1292]: https://github.com/rustwasm/wasm-pack/pull/1292
+
+## 🌦️ 0.11.1
+
+- ### 🤕 Fixes
+
+  - **Fix discovery of locally installed `wasm-opt` - [Liamolucko], [issue/1247], [pull/1257]**
+
+    [issue/1247]: https://github.com/rustwasm/wasm-pack/issues/1247
+    [pull/1257]: https://github.com/rustwasm/wasm-pack/pull/1257
+    [Liamolucko]: https://github.com/Liamolucko
+
+  - **Fix wasm-pack bin script entry - [ahippler], [issue/1248], [pull/1250]**
+
+    [issue/1248]: https://github.com/rustwasm/wasm-pack/issues/1248
+    [pull/1250]: https://github.com/rustwasm/wasm-pack/pull/1250
+    [ahippler]: https://github.com/ahippler
+
+- ### 🛠️ Maintenance
+
+  - **bump openssl from 0.10.46 to 0.10.48 - [pull/1254]**
+
+    [pull/1254]: https://github.com/rustwasm/wasm-pack/pull/1254
+
+## 🌦️ 0.11.0
+
+- ### ✨ Features
+
+  - **Make Deno target available - [egfx-notifications], [issue/672], [issue/879], [pull/1117]**
+
+    [issue/672]: https://github.com/rustwasm/wasm-pack/issues/672
+    [issue/879]: https://github.com/rustwasm/wasm-pack/issues/879
+    [pull/1117]: https://github.com/rustwasm/wasm-pack/pull/1117
+    [egfx-notifications]: https://github.com/egfx-notifications
+
+  - **Add support for more platforms to installer script - [omninonsense], [issue/1064], [issue/952], [issue/1125], [pull/1122]**
+
+    This makes the installation script work on M1 macs, as well as inside docker (especially when combined with buildx) for aarch64/arm64 architectures.
+
+    [issue/1064]: https://github.com/rustwasm/wasm-pack/issues/1064
+    [issue/952]: https://github.com/rustwasm/wasm-pack/issues/952
+    [issue/1125]: https://github.com/rustwasm/wasm-pack/issues/1125
+    [pull/1122]: https://github.com/rustwasm/wasm-pack/pull/1122
+    [omninonsense]: https://github.com/omninonsense
+
+  - **Add Linux arm64 support - [nnelgxorz], [issue/1169], [pull/1170]**
+
+    [issue/1169]: https://github.com/rustwasm/wasm-pack/issues/1169
+    [pull/1170]: https://github.com/rustwasm/wasm-pack/pull/1170
+    [nnelgxorz]: https://github.com/nnelgxorz
+
+  - **Add support for workspace inheritance - [printfn], [issue/1180], [pull/1185]**
+
+    [issue/1180]: https://github.com/rustwasm/wasm-pack/issues/1180
+    [pull/1185]: https://github.com/rustwasm/wasm-pack/pull/1185
+
+- ### 🤕 Fixes
+
+  - **--target-dir as extra option is now considered as expected - [sassman], [issue/1076], [pull/1082]**
+
+    [issue/1076]: https://github.com/rustwasm/wasm-pack/issues/1076
+    [pull/1082]: https://github.com/rustwasm/wasm-pack/pull/1082
+    [sassman]: https://github.com/sassman
+
+  - **Pass through --weak-refs --reference-types flags to bindgen - [serprex], [issue/930], [pull/937]**
+
+    [issue/930]: https://github.com/rustwasm/wasm-pack/issues/930
+    [pull/937]: https://github.com/rustwasm/wasm-pack/pull/937
+    [serprex]: https://github.com/serprex
+
+  - **Fix binaryen URL and use updated binary-install to fix installation on macOS - [matheus23], [printfn], [pull/1188]**
+
+    Use the updated binary-install crate (rustwasm/binary-install#21), switches from failure to anyhow to match what binary-install uses, and fixes wasm-opt installation on macOS.
+
+    [pull/1188]: https://github.com/rustwasm/wasm-pack/pull/1188
+    [matheus23]: https://github.com/matheus23
+    [printfn]: https://github.com/printfn
+    [rustwasm/binary-install#21]: https://github.com/rustwasm/binary-install/pull/21
+
+  - **Mark snippets and the bundler target's main file as having side effects - [Liamolucko], [issue/972], [rustwasm/wasm-bindgen/3276], [pull/1224]**
+
+    [issue/972]: https://github.com/rustwasm/wasm-pack/issues/972
+    [rustwasm/wasm-bindgen/3276]: https://github.com/rustwasm/wasm-bindgen/issues/3276
+    [pull/1224]: https://github.com/rustwasm/wasm-pack/pull/1224
+    [Liamolucko]: https://github.com/Liamolucko
+
+- ### 📖 Documentation
+
+  - **Fix typos in non-rustup-setups.md - [dallasbrittany], [issue/1141], [pull/1142]**
+
+    [issue/1141]: https://github.com/rustwasm/wasm-pack/issues/1141
+    [pull/1142]: https://github.com/rustwasm/wasm-pack/issues/1141
+    [dallasbrittany]: https://github.com/dallasbrittany
+
+  - **Fix typos in considerations.md - [lhjt], [pull/1066]**
+
+    [pull/1066]: https://github.com/rustwasm/wasm-pack/pull/1066
+    [lhjt]: https://github.com/lhjt
+
+  - **Grammar and typo fixes - [helixbass], [pull/1143]**
+
+    [pull/1143]: https://github.com/rustwasm/wasm-pack/pull/1143
+    [helixbass]: https://github.com/helixbass
+
+  - **Replace two mentions of wasm-pack init with wasm-pack build in the docs - [mstange], [pull/1086]**
+
+    [pull/1086]: https://github.com/rustwasm/wasm-pack/pull/1086
+    [mstange]: https://github.com/mstange
+
+  - **Update npm installation link - [benediktwerner], [pull/1227]**
+
+    [pull/1227]: https://github.com/rustwasm/wasm-pack/pull/1227
+    [benediktwerner]: https://github.com/benediktwerner
+
+- ### 🛠️ Maintenance
+
+  - **Bump wasm-opt to version 108 - [MichaelMauderer], [issue/1135] [pull/1136]**
+
+    [pull/1136]: https://github.com/rustwasm/wasm-pack/pull/1136
+    [issue/1135]: https://github.com/rustwasm/wasm-pack/issues/1135
+    [MichaelMauderer]: https://github.com/MichaelMauderer
+
+  - **Update binary-install to v1.0.1 - [EverlastingBugstopper], [pull/1130]**
+
+    [pull/1130]: https://github.com/rustwasm/wasm-pack/pull/1130
+
+  - **Add back run.js to npm installer - [EverlastingBugstopper], [pull/1149]**
+
+    [pull/1149]: https://github.com/rustwasm/wasm-pack/pull/1149
+
+  - **Fix some typos in the codebase - [striezel], [pull/1220]**
+
+    [pull/1220]: https://github.com/rustwasm/wasm-pack/pull/1220
+    [striezel]: https://github.com/striezel
+
+  - **Update actions/checkout in GitHub Actions workflows to v3 - [striezel], [pull/1221]**
+
+    [pull/1221]: https://github.com/rustwasm/wasm-pack/pull/1221
+
+  - **Update actions/cache in GitHub Actions workflows to v3 - [striezel], [pull/1222]**
+
+    [pull/1222]: https://github.com/rustwasm/wasm-pack/pull/1222
+
+  - **Update JamesIves/github-pages-deploy-action in GHA workflow to v4.4.1 - [striezel], [pull/1223]**
+
+    [pull/1223]: https://github.com/rustwasm/wasm-pack/pull/1223
+
 ## 🌦️ 0.10.3
 
 - ### 🤕 Fixes
 
   - **Use bash to create release tarballs - [nasso], [issue/1097] [pull/1144]**
 
-     Fixes Windows installer failure due to malformatted tar.
+    Fixes Windows installer failure due to malformatted tar.
 
     [pull/1144]: https://github.com/rustwasm/wasm-pack/pull/1144
     [issue/1097]: https://github.com/rustwasm/wasm-pack/issues/1097
@@ -16,7 +678,7 @@
 
   - **Clean up package.json from previous runs - [main--], [issue/1110-comment] [pull/1119]**
 
-     Remove the package.json file from previous runs to avoid crashes.
+    Remove the package.json file from previous runs to avoid crashes.
 
     [pull/1119]: https://github.com/rustwasm/wasm-pack/pull/1119
     [issue/1110-comment]: https://github.com/rustwasm/wasm-pack/pull/1110#issuecomment-1059008962
@@ -24,10 +686,10 @@
 
   - **Do not remove the pkg directory - [huntc], [issue/1099] [pull/1110]**
 
-     A recent change ensured that the pkg directory was removed as the first step of attempting to create it.
-     Unfortunately, this caused a problem for webpack when watching the pkg directory.
-     Webpack was unable to recover its watching and so any watch server must be restarted,
-     which is a blocker when using it. This PR and release fixes this.
+    A recent change ensured that the pkg directory was removed as the first step of attempting to create it.
+    Unfortunately, this caused a problem for webpack when watching the pkg directory.
+    Webpack was unable to recover its watching and so any watch server must be restarted,
+    which is a blocker when using it. This PR and release fixes this.
 
     [pull/1110]: https://github.com/rustwasm/wasm-pack/pull/1110
     [issue/1099]: https://github.com/rustwasm/wasm-pack/issues/1099
@@ -46,7 +708,6 @@
     [pull/1146]: https://github.com/rustwasm/wasm-pack/pull/1146
     [dependabot]: https://github.com/apps/dependabot
 
-
 ## 🌦️ 0.10.2
 
 - ### ✨ Features
@@ -61,7 +722,7 @@
 
   - **Add support for macos aarch64 - [d3lm], [issue/913] [pull/1088]**
 
-     This fixes aarch64 for MacOS and will download x86_64-apple-darwin.
+    This fixes aarch64 for MacOS and will download x86_64-apple-darwin.
 
     [pull/1088]: https://github.com/rustwasm/wasm-pack/pull/1088
     [issue/913]: https://github.com/rustwasm/wasm-pack/issues/913
@@ -87,7 +748,6 @@
     [FrankenApps]: https://github.com/FrankenApps
     [pull/1073]: https://github.com/rustwasm/wasm-pack/pull/1073
     [issue/1059]: https://github.com/rustwasm/wasm-pack/issues/1059
-
 
 ## 🌦️ 0.10.1
 
@@ -223,7 +883,7 @@
 
     [pull/841]: https://github.com/rustwasm/wasm-pack/pull/841
 
-## ☁️  0.9.1
+## ☁️ 0.9.1
 
 - ### 🤕 Fixes
 
@@ -233,7 +893,7 @@
     using binaryen version 78. This version had various issues on Unix/Linux and caused broken CI
     builds for many folks (we're so sorry!).
 
-    This PR updates the binaryen version to 90, which should fix the issues folks were having. 
+    This PR updates the binaryen version to 90, which should fix the issues folks were having.
 
     Long-term, we'd like to create an auto-updating mechanism so that we can install and use the
     latest release of binaryen as we do for other binaries we orchestrate.
@@ -257,20 +917,20 @@
 
   - **Adding in `--quiet` and `--log-level` flags to control the console output - [Pauan], [pull/694]**
 
-    The `--verbose` flag has long existed as a way to get more console output, but now there are two flags to get *less* console output:
+    The `--verbose` flag has long existed as a way to get more console output, but now there are two flags to get _less_ console output:
 
-    * `--quiet` will silence *all* stdout, so only errors will be displayed.
-    * `--log-level` can be used to silence `[INFO]` or `[WARN]` output from wasm-pack.
+    - `--quiet` will silence _all_ stdout, so only errors will be displayed.
+    - `--log-level` can be used to silence `[INFO]` or `[WARN]` output from wasm-pack.
 
-    You can cause it to display even *more* information by using `--verbose`, or you can silence *all* stdout by using `--quiet`.
+    You can cause it to display even _more_ information by using `--verbose`, or you can silence _all_ stdout by using `--quiet`.
 
     You can also use `--log-level` to have fine-grained control over wasm-pack's log output:
 
-    * `--log-level info` is the default, it causes all messages to be logged.
-    * `--log-level warn` causes warnings and errors to be displayed, but not info.
-    * `--log-level error` causes only errors to be displayed.
+    - `--log-level info` is the default, it causes all messages to be logged.
+    - `--log-level warn` causes warnings and errors to be displayed, but not info.
+    - `--log-level error` causes only errors to be displayed.
 
-    These flags are global flags, so they can be used with every command, and they must come *before* the command:
+    These flags are global flags, so they can be used with every command, and they must come _before_ the command:
 
     ```sh
     wasm-pack --log-level error build
@@ -302,7 +962,7 @@
 
     [alexcrichton]: https://github.com/alexcrichton
     [pull/625]: https://github.com/rustwasm/wasm-pack/pull/625
-    [issue/159]: https://github.com/rustwasm/wasm-pack/issues/159  
+    [issue/159]: https://github.com/rustwasm/wasm-pack/issues/159
 
   - **Helpful error message when wasm-bindgen fails because of an old version - [gameldar], [ashleygwilliams], [issue/627] [pull/633]**
 
@@ -359,7 +1019,7 @@
   - **Remove broken link from the README - [drager], [pull/635]**
 
     [drager]: https://github.com/drager
-    [pull/635]: https://github.com/rustwasm/wasm-pack/pull/635 
+    [pull/635]: https://github.com/rustwasm/wasm-pack/pull/635
 
   - **Make `sideEffects` in generated `package.json` a boolean instead of a string - [rhysd], [pull/649]**
 
@@ -425,7 +1085,7 @@
 
     [ashleygwilliams]: https://github.com/ashleygwilliams
     [pull/626]: https://github.com/rustwasm/wasm-pack/pull/626
-    [issue/370]: https://github.com/rustwasm/wasm-pack/issues/370  
+    [issue/370]: https://github.com/rustwasm/wasm-pack/issues/370
 
 - ### 🛠️ Maintenance
 
@@ -448,7 +1108,7 @@
 
     [data-pup]: https://github.com/data-pup
     [pull/664]: https://github.com/rustwasm/wasm-pack/pull/664
-    [issue/639]: https://github.com/rustwasm/wasm-pack/issues/639  
+    [issue/639]: https://github.com/rustwasm/wasm-pack/issues/639
 
 ## 🛠️ 0.8.1
 
@@ -456,119 +1116,119 @@
 
   - **Check for "rustup" rather than ".rustup" when checking for wasm32 - [drager], [issue/613][pull/616]**
 
-      When we introduced support for non-rustup setups we did a check if the user was
-      using rustup or not. However, this check was too constrained and only covered
-      the most common cases, but it did not work for Docker setups.
+    When we introduced support for non-rustup setups we did a check if the user was
+    using rustup or not. However, this check was too constrained and only covered
+    the most common cases, but it did not work for Docker setups.
 
-      This PR addresses that and it now covers Docker setups as well!
-      When doing this fix we also found two other small issues which this PR also addresses.
-      The first is that we did not print the helpful error message when the wasm32 target
-      was not found and the other one was that it linked to the wrong section of the documentation.
+    This PR addresses that and it now covers Docker setups as well!
+    When doing this fix we also found two other small issues which this PR also addresses.
+    The first is that we did not print the helpful error message when the wasm32 target
+    was not found and the other one was that it linked to the wrong section of the documentation.
 
-      [issue/613]: https://github.com/rustwasm/wasm-pack/issues/613
-      [pull/616]: https://github.com/rustwasm/wasm-pack/pull/616
+    [issue/613]: https://github.com/rustwasm/wasm-pack/issues/613
+    [pull/616]: https://github.com/rustwasm/wasm-pack/pull/616
 
 ## 🌤️ 0.8.0
 
 - ### ✨ Features
 
-    - **Give user's ability to customize generated filenames with `--out-name` flag - [ibaryshnikov], [issue/596] [pull/599]**
+  - **Give user's ability to customize generated filenames with `--out-name` flag - [ibaryshnikov], [issue/596] [pull/599]**
 
-        When running `wasm-pack build`, several files are generated. These files
-        are named based on the name of the crate, as per your `Cargo.toml` file.
-        Sometimes- that's not the name you'd like your files to have!
+    When running `wasm-pack build`, several files are generated. These files
+    are named based on the name of the crate, as per your `Cargo.toml` file.
+    Sometimes- that's not the name you'd like your files to have!
 
-        You can now specify a custom name for the generated files using a new
-        flag, `--out-name`. Given a project called `dom`, here's a comparison of
-        the default and custom generated filenames:
+    You can now specify a custom name for the generated files using a new
+    flag, `--out-name`. Given a project called `dom`, here's a comparison of
+    the default and custom generated filenames:
 
-        ```
-        wasm-pack build
-        # will produce files
-        # dom.d.ts  dom.js  dom_bg.d.ts  dom_bg.wasm  package.json  README.md
+    ```
+    wasm-pack build
+    # will produce files
+    # dom.d.ts  dom.js  dom_bg.d.ts  dom_bg.wasm  package.json  README.md
 
-         wasm-pack build --out-name index
-        # will produce files
-        # index.d.ts  index.js  index_bg.d.ts  index_bg.wasm  package.json  README.md
-        ``` 
+     wasm-pack build --out-name index
+    # will produce files
+    # index.d.ts  index.js  index_bg.d.ts  index_bg.wasm  package.json  README.md
+    ```
 
-        [ibaryshnikov]: https://github.com/ibaryshnikov
-        [issue/596]: https://github.com/rustwasm/wasm-pack/issues/596
-        [pull/599]: https://github.com/rustwasm/wasm-pack/pull/599
+    [ibaryshnikov]: https://github.com/ibaryshnikov
+    [issue/596]: https://github.com/rustwasm/wasm-pack/issues/596
+    [pull/599]: https://github.com/rustwasm/wasm-pack/pull/599
 
 - ### 🤕 Fixes
 
-    - **Fix panics in `build mode --no-install` - [alexcrichton], [pull/598]**
+  - **Fix panics in `build mode --no-install` - [alexcrichton], [pull/598]**
 
-        This commit fixes the `wasm-pack build --mode no-install` command from
-        unconditionally panicking as well as `--mode force`. These steps were
-        calling an `unwrap()` on an internal `Option<T>` which was supposed to
-        be set during `step_install_wasm_bindgen`, but that step wasn't run in
-        these modes. The mode configuration of steps has been refactored
-        slightly to ensure that more steps are shared between these modes to
-        reduce duplication.
+    This commit fixes the `wasm-pack build --mode no-install` command from
+    unconditionally panicking as well as `--mode force`. These steps were
+    calling an `unwrap()` on an internal `Option<T>` which was supposed to
+    be set during `step_install_wasm_bindgen`, but that step wasn't run in
+    these modes. The mode configuration of steps has been refactored
+    slightly to ensure that more steps are shared between these modes to
+    reduce duplication.
 
-        [pull/598]: https://github.com/rustwasm/wasm-pack/pull/598
+    [pull/598]: https://github.com/rustwasm/wasm-pack/pull/598
 
-    - **Print unexpected panics to standard error - [drager], [issue/562] [pull/601]**
+  - **Print unexpected panics to standard error - [drager], [issue/562] [pull/601]**
 
-        Unexpected panics are unfortunate but they're currently covered up and written
-        out to an auxiliary file. This makes panics in CI difficult to debug,
-        especially at a glance, as CI builders are likely not uploading those files.
+    Unexpected panics are unfortunate but they're currently covered up and written
+    out to an auxiliary file. This makes panics in CI difficult to debug,
+    especially at a glance, as CI builders are likely not uploading those files.
 
-        This PR will print to standard error for unexpected panics and then let
-        `human_panic` handle panics, just like before.
+    This PR will print to standard error for unexpected panics and then let
+    `human_panic` handle panics, just like before.
 
-        [issue/562]: https://github.com/rustwasm/wasm-pack/issues/562
-        [pull/601]: https://github.com/rustwasm/wasm-pack/pull/601
+    [issue/562]: https://github.com/rustwasm/wasm-pack/issues/562
+    [pull/601]: https://github.com/rustwasm/wasm-pack/pull/601
 
-    - **Improve error message when `wasm32-unknown-unknown` is missing - [drager], [issue/579] [pull/602]**
+  - **Improve error message when `wasm32-unknown-unknown` is missing - [drager], [issue/579] [pull/602]**
 
-        For folks with non-rustup environments (which we only started supporting in
-        0.7.0!), we were giving a missing target error that was not helpful!
+    For folks with non-rustup environments (which we only started supporting in
+    0.7.0!), we were giving a missing target error that was not helpful!
 
-        We've updated the error message to include more information, and we've added
-        some documentation to help explain how you can remedy the error by manually
-        installing the target on your specific rust setup- including the fact that
-        it may *not* be possible to add the target to some setups.
+    We've updated the error message to include more information, and we've added
+    some documentation to help explain how you can remedy the error by manually
+    installing the target on your specific rust setup- including the fact that
+    it may _not_ be possible to add the target to some setups.
 
-        Check out the docs [here](https://rustwasm.github.io/wasm-pack/book/prerequisites/non-rustup-setups.html).
+    Check out the docs [here](https://wasm-bindgen.github.io/wasm-pack/book/prerequisites/non-rustup-setups.html).
 
-        [issue/579]: https://github.com/rustwasm/wasm-pack/issues/579
-        [pull/602]: https://github.com/rustwasm/wasm-pack/pull/602
+    [issue/579]: https://github.com/rustwasm/wasm-pack/issues/579
+    [pull/602]: https://github.com/rustwasm/wasm-pack/pull/602
 
 - ### 📖 Documentation
 
-    - **Document `--out-dir` flag - [ashleygwilliams], [issue/592] [pull/593]**
+  - **Document `--out-dir` flag - [ashleygwilliams], [issue/592] [pull/593]**
 
-        Recently, someone asked on Discord about customizing the name of the directory
-        that contains the assets built by `wasm-pack`. We've had the `out-dir` flag for
-        a while, but it wasn't documented! Now it is.
+    Recently, someone asked on Discord about customizing the name of the directory
+    that contains the assets built by `wasm-pack`. We've had the `out-dir` flag for
+    a while, but it wasn't documented! Now it is.
 
-        [issue/592]: https://github.com/rustwasm/wasm-pack/issues/592
-        [pull/593]: https://github.com/rustwasm/wasm-pack/pull/593
+    [issue/592]: https://github.com/rustwasm/wasm-pack/issues/592
+    [pull/593]: https://github.com/rustwasm/wasm-pack/pull/593
 
-    - **Fix broken links in docs and update for template changes - [drager], [ashleygwilliams], [issue/609] [pull/612] [pull/614]**
+  - **Fix broken links in docs and update for template changes - [drager], [ashleygwilliams], [issue/609] [pull/612] [pull/614]**
 
-        Recently, some improvements were made to the [`wasmpack-template`]. Additionally,
-        there were some broken links in the documentation. We've updated the docs for the
-        new template and fixed the broken links!
+    Recently, some improvements were made to the [`wasmpack-template`]. Additionally,
+    there were some broken links in the documentation. We've updated the docs for the
+    new template and fixed the broken links!
 
-        [issue/609]: https://github.com/rustwasm/wasm-pack/issues/609
-        [pull/612]: https://github.com/rustwasm/wasm-pack/pull/612
-        [pull/614]: https://github.com/rustwasm/wasm-pack/pull/614
+    [issue/609]: https://github.com/rustwasm/wasm-pack/issues/609
+    [pull/612]: https://github.com/rustwasm/wasm-pack/pull/612
+    [pull/614]: https://github.com/rustwasm/wasm-pack/pull/614
 
 - ### 🛠️ Maintenance
 
-    - **Move `binary-install` to its own repo - [drager], [issue/500] [pull/600]**
+  - **Move `binary-install` to its own repo - [drager], [issue/500] [pull/600]**
 
-        `binary-install` is a crate that holds the abstractions for how `wasm-pack` downloads
-        and caches pre-built binaries for the tools it wraps. It was originally part of the
-        `wasm-pack` code, then moved into a workspace as an independent crate. Now that we
-        believe it's stable, we've moved it into its own [repo](https://github.com/rustwasm/binary-install)!
+    `binary-install` is a crate that holds the abstractions for how `wasm-pack` downloads
+    and caches pre-built binaries for the tools it wraps. It was originally part of the
+    `wasm-pack` code, then moved into a workspace as an independent crate. Now that we
+    believe it's stable, we've moved it into its own [repo](https://github.com/rustwasm/binary-install)!
 
-        [issue/500]: https://github.com/rustwasm/wasm-pack/issues/500
-        [pull/600]: https://github.com/rustwasm/wasm-pack/pull/600
+    [issue/500]: https://github.com/rustwasm/wasm-pack/issues/500
+    [pull/600]: https://github.com/rustwasm/wasm-pack/pull/600
 
 ## 🌤️ 0.7.0
 
@@ -603,7 +1263,7 @@
   - **Add support for `--target web` - [alexcrichton], [pull/567]**
 
     Recently, `wasm-bindgen` add a new target- `web`. This new target is similar to the `no-modules` target, in that
-    it is designed to generate code that should be loaded directly in a browser, without the need of a bundler. As 
+    it is designed to generate code that should be loaded directly in a browser, without the need of a bundler. As
     opposed to the `no-modules` target, which produces an IIFE (Immediately Invoked Function Expression), this target
     produces code that is an ES6 module.
 
@@ -613,7 +1273,7 @@
     wasm-pack build --target web
     ```
 
-    Learn more about how to use this target by [checking out the docs!](https://rustwasm.github.io/wasm-pack/book/commands/build.html#target)
+    Learn more about how to use this target by [checking out the docs!](https://wasm-bindgen.github.io/wasm-pack/book/commands/build.html#target)
 
     [pull/567]: https://github.com/rustwasm/wasm-pack/pull/567
 
@@ -677,7 +1337,7 @@
     Several users noted that when downloading a new version of `wasm-pack` their browser named the executable
     file `wasm-pack-init (1).exe`. When named this way, the file didn't show the init instructions on execution.
     This happened because the installation logic was requiring an exact match on filename. We've loosened that
-    restriction so that the filename must *start* with `wasm-pack-init` and will still execute files with these
+    restriction so that the filename must _start_ with `wasm-pack-init` and will still execute files with these
     additional, extraneous charaters in the filename. Thanks so much to [Mblkolo] and [danwilhelm] for filing the
     issue and the excellent discussion!
 
@@ -702,7 +1362,7 @@
   - **Correct look up location for `wasm-bindgen` when it's installed via `cargo install` - [fitzgen], [pull/504]**
 
     Sometimes, when a `wasm-bindgen` binary is not available, or if `wasm-pack` is being run on an architecture that
-    `wasm-bindgen` doesn't produce binaries for, instead of downloading a pre-built binary, `wasm-pack` will install 
+    `wasm-bindgen` doesn't produce binaries for, instead of downloading a pre-built binary, `wasm-pack` will install
     `wasm-bindgen` using `cargo install`. This is a great and flexible back up!
 
     However, due to the last release's recent refactor to use a global cache, we overlooked the `cargo install` case
@@ -710,7 +1370,7 @@
     would panic.
 
     We've fixed the lookup for the `cargo install`'d `wasm-bindgen` by moving the `cargo-install`'d version to global
-    cache location for `wasm-pack` once it's successfully built. We also eliminated the panic in favor of 
+    cache location for `wasm-pack` once it's successfully built. We also eliminated the panic in favor of
     propagating an error. Thanks for your bug reports and sorry about the mistake!
 
     [pull/504]: https://github.com/rustwasm/wasm-pack/pull/504
@@ -729,7 +1389,7 @@
 
     [`clippy`] is an awesome utilty that helps lint your Rust code for common optimizations and idioms. at the
     beginning of `wasm-pack` development, `clippy` had not yet stablized, but it has since 1.0'd and it was
-    high time we leveraged it in `wasm-pack`. We still aren't *completely* fixed, but we're working on it, and
+    high time we leveraged it in `wasm-pack`. We still aren't _completely_ fixed, but we're working on it, and
     we've already dervived a ton of value from the tool!
 
     [`clippy`]: https://github.com/rust-lang/rust-clippy
@@ -748,7 +1408,7 @@
     [`assert_cmd`] is a great utility for testing CLI applications that is supported by the [CLI WG]. `wasm-pack`
     development began before this library existed- so we were using a much less pleasant and efficient strategy
     to test the CLI functionality of `wasm-pack`. Now we've ported over to using this great library!
-    
+
     [CLI WG]: https://www.rust-lang.org/what/cli
     [`assert_cmd`]: https://crates.io/crates/assert_cmd
     [pull/522]: https://github.com/rustwasm/wasm-pack/pull/522
@@ -779,21 +1439,21 @@
 
   - **Flag gh-pages docs as unpublished - [alexcrichton] [pull/565]**
 
-    Recently, [DebugSteven] made a PR to merge all the documentation for the rustwasm toolchain into a 
+    Recently, [DebugSteven] made a PR to merge all the documentation for the rustwasm toolchain into a
     [single location]. This is going to make discovering and using tools from the entire organization easier
     for new and seasoned folks alike. This also has the feature of displaying documentation that is related
     to the current published version of each tool- unlike before, where the only accessible documentation was
     for the tools at current master (which may or may not be currently published!)
 
     If you like reading the current master's documentation- fear not, each tool will still publish the
-    documentation generated from the master branch on their individual `gh-pages` 
+    documentation generated from the master branch on their individual `gh-pages`
     ([See `wasm-pack's` master docs here]). To avoid confusion, we've added a flash message that let's you know
     which documentation you are reading- and provides a link to documentation of the published version- just
     in case that's what you're looking for!
 
     [DebugSteve]: https://github.com/DebugSteven
     [single location]: https://rustwasm.github.io/docs.html
-    [See `wasm-pack's` master docs here]: https://rustwasm.github.io/wasm-pack/book/
+    [See `wasm-pack's` master docs here]: https://wasm-bindgen.github.io/wasm-pack/book/
     [pull/565]: https://github.com/rustwasm/wasm-pack/pull/565
 
   - **Add new QuickStart guide for "Hybrid Applications with Webpack" - [DebugSteven] [pull/536]**
@@ -802,13 +1462,13 @@
     publishes it to npm, where anyone can use it like any npm package in their JavaScript or Node.js application.
 
     Shortly after `wasm-pack` appeared, some RustWASM teammates created a template for a similar workflow- building
-    a RustWASM package *alongside* an application. They did this by leveraging Webpack plugins, and it's a really
+    a RustWASM package _alongside_ an application. They did this by leveraging Webpack plugins, and it's a really
     lovely user experience!
 
     [This template] hasn't gotten as much attention because we've lacked a quickstart guide for folks to discover
     and follow- now we've got one!
 
-    Check out the guide [here](https://rustwasm.github.io/wasm-pack/book/tutorials/hybrid-applications-with-webpack/index.html)!
+    Check out the guide [here](https://wasm-bindgen.github.io/wasm-pack/book/tutorials/hybrid-applications-with-webpack/index.html)!
 
     [This temaplte]: https://github.com/rustwasm/rust-webpack-template
     [DebugSteven]: https://github.com/DebugSteven
@@ -821,7 +1481,7 @@
     However, for folks who don't use the template, `wee_alloc` is something important to know about- so now we have
     given it its own section!
 
-    Check out the deepdive [here](https://rustwasm.github.io/wasm-pack/book/tutorials/npm-browser-packages/template-deep-dive/wee_alloc.html)!
+    Check out the deepdive [here](https://wasm-bindgen.github.io/wasm-pack/book/tutorials/npm-browser-packages/template-deep-dive/wee_alloc.html)!
 
     [surma]: https://github.com/surma
     [pull/542]: https://github.com/rustwasm/wasm-pack/pull/542
@@ -847,11 +1507,11 @@
 
   - **Wasm is a contraction, not an acronym - [fitzgen], [pull/555]**
 
-    Ever wonder how you're *actually* supposed to refer to WebAssembly in short-form? WASM? wasm? For the pedants
-    out there, the correct usage is "Wasm" because Wasm is a *contraction* of the words Web and Assembly. We've
+    Ever wonder how you're _actually_ supposed to refer to WebAssembly in short-form? WASM? wasm? For the pedants
+    out there, the correct usage is "Wasm" because Wasm is a _contraction_ of the words Web and Assembly. We've
     updated our doucmentation to consistently refer to WebAssembly as Wasm in the shortform.
 
-    *The more you know!*
+    _The more you know!_
 
     [pull/555]: https://github.com/rustwasm/wasm-pack/pull/555
 
@@ -861,8 +1521,7 @@
 
     [issue/513]: https://github.com/rustwasm/wasm-pack/issues/513
     [pull/514]: https://github.com/rustwasm/wasm-pack/pull/514
-    [pull/516]: https://github.com/rustwasm/wasm-pack/pull/516  
-    
+    [pull/516]: https://github.com/rustwasm/wasm-pack/pull/516
 
 ## 🌅 0.6.0
 
@@ -880,11 +1539,11 @@
     and added an additional flag, representing a third, intermediary, build profile, called `--profiling` which
     is useful for investigating performance issues. You can see all three flags and their uses in the table below:
 
-    | Profile       | Debug Assertions | Debug Info | Optimizations | Notes                                 |
-    |---------------|------------------|------------|---------------|---------------------------------------|
-    | `--dev`       | Yes              | Yes        | No            | Useful for development and debugging. |
+    | Profile       | Debug Assertions | Debug Info | Optimizations | Notes                                                       |
+    | ------------- | ---------------- | ---------- | ------------- | ----------------------------------------------------------- |
+    | `--dev`       | Yes              | Yes        | No            | Useful for development and debugging.                       |
     | `--profiling` | No               | Yes        | Yes           | Useful when profiling and investigating performance issues. |
-    | `--release`   | No               | No         | Yes           | Useful for shipping to production.    |
+    | `--release`   | No               | No         | Yes           | Useful for shipping to production.                          |
 
     The meaning of these flags will evolve as the platform grows, and always be tied to the behavior of these flags
     in `cargo`. You can learn more about these in the [`cargo profile` documentation].
@@ -894,7 +1553,7 @@
     however, as our community and their projects mature alongside the tool, it became clear that allowing folks the
     ability to drop down and configure things was something we needed to do to meet their needs.
 
-    Currently, you can only configure things related to the above-mentioned build profiles. To learn more, 
+    Currently, you can only configure things related to the above-mentioned build profiles. To learn more,
     [check out the documentation][profile-config-docs]. It leverages the `package.metadata.wasm-pack` key in your
     `Cargo.toml`, and looks like this:
 
@@ -913,7 +1572,7 @@
     As always- there are defaults for you to use, but if you love to configure (or have a project that requires it),
     get excited, as your options have grown now and will continue to!
 
-    [profile-config-docs]: https://rustwasm.github.io/wasm-pack/book/cargo-toml-configuration.html
+    [profile-config-docs]: https://wasm-bindgen.github.io/wasm-pack/book/cargo-toml-configuration.html
     [`cargo profile` documentation]: https://doc.rust-lang.org/cargo/reference/manifest.html#the-profile-sections
     [issue/153]: https://github.com/rustwasm/wasm-pack/issues/153
     [issue/160]: https://github.com/rustwasm/wasm-pack/issues/160
@@ -938,14 +1597,13 @@
     wasm-pack build examples/js-hello-world --mode no-install -- -Z offline
     ```
 
-    In the above example, the flag `-Z offline` will be passed to `cargo build`. This feature is documented 
+    In the above example, the flag `-Z offline` will be passed to `cargo build`. This feature is documented
     [here][cargo opts docs].
 
-    [cargo opts docs]: https://rustwasm.github.io/wasm-pack/book/commands/build.html#extra-options
+    [cargo opts docs]: https://wasm-bindgen.github.io/wasm-pack/book/commands/build.html#extra-options
     [torkve]: https://github.com/torkve
     [issue/455]: https://github.com/rustwasm/wasm-pack/issues/455
     [pull/461]: https://github.com/rustwasm/wasm-pack/pull/461
-
 
   - **Pre-build before wasm-pack publish - [csmoe], [issue/438] [pull/444]**
 
@@ -954,10 +1612,10 @@
     out-directory containing a `package.json`.
 
     In this situation, you would hope that `wasm-pack` would build your package for you when you
-    ran `wasm-pack publish`. This is slightly complicated by the fact that not everyone wants to 
+    ran `wasm-pack publish`. This is slightly complicated by the fact that not everyone wants to
     build their package to the default target or to a directory named `pkg`.
 
-    To solve this, running `wasm-pack publish` before a successful build  will give you an interactive
+    To solve this, running `wasm-pack publish` before a successful build will give you an interactive
     prompt to build your package- allowing you to specify your out directory as well as the target you'd
     like to build to. Check it out in the gif below:
 
@@ -991,7 +1649,7 @@
     in a single cargo project. Because of how `wasm-pack` handled paths for `target` and out-directories,
     we did not support cargo workspaces out of the box. Now they should work well and the feature is
     well guarded by tests!
-    
+
     [issue/252]: https://github.com/rustwasm/wasm-pack/issues/252
     [issue/305]: https://github.com/rustwasm/wasm-pack/issues/305
     [pull/430]: https://github.com/rustwasm/wasm-pack/pull/430
@@ -1036,7 +1694,7 @@
     For a few releases now, `wasm-pack` has supported allowing users to specifying the target module system
     they'd like their package built for- `browser`, `nodejs`, and `no-modules`. We did not however, validate
     this input, and so if a user made even a slight mistake, e.g. `node`, `wasm-pack` would not catch the
-    error and would build your project using the default, `browser`. This is of course, surprising, and 
+    error and would build your project using the default, `browser`. This is of course, surprising, and
     unpleasant behavior and so now we'll error out with a message containing the supported target names.
 
     [issue/483]: https://github.com/rustwasm/wasm-pack/issues/483
@@ -1056,7 +1714,7 @@
     | :-) Your wasm pkg is ready to publish at "\\\\?\\C:\\Users\\Ferris\\tmp\\wasm-bug\\pkg".
     ```
 
-    We've updated this to make sure the path to your project is well-formed, and most importantly, 
+    We've updated this to make sure the path to your project is well-formed, and most importantly,
     human-readable.
 
     [issue/390]: https://github.com/rustwasm/wasm-pack/issues/390
@@ -1080,13 +1738,13 @@
 
   - **Fix wasm-bindgen if lib is renamed via `lib.name` - [alexcrichton], [issue/339] [pull/435]**
 
-    In some circumstances, a library author may wish to specify a `name` in the `[package]` portion of their 
+    In some circumstances, a library author may wish to specify a `name` in the `[package]` portion of their
     `Cargo.toml`, as well as a different `name` in the `[lib]` portion, e.g.:
 
     ```toml
     [package]
     name = "hello-wasm"
-  
+
     [lib]
     name = "wasm-lib"
     ```
@@ -1110,7 +1768,7 @@
 
   - **Add no-modules to --target flag's help text - [fitzgen], [issue/416] [pull/417]**
 
-    This is an interesting one! `fitzgen` very reasonably filed an issue asking to add `wasm-bindgen`'s 
+    This is an interesting one! `fitzgen` very reasonably filed an issue asking to add `wasm-bindgen`'s
     `--target no-modules` feature to `wasm-pack`. This was confusing as this feature was indeed already implemented,
     and documented- BUT, notably missing from the `wasm-pack --help` text. We've fixed that now- and it was an omission
     so glaring we definitely considered it a bug!
@@ -1124,7 +1782,7 @@
 
     For internal maintenance reasons, as well as several end-user ones, we've migrated away from the `slog` family
     of crates, and are now using the `log` crate plus `env_logger`. Now, `wasm-pack` won't create a `wasm-pack.log`.
-    Additionally, enabling logging will now be done through `RUST_LOG=wasm_pack` instead of  `-v` flags. 
+    Additionally, enabling logging will now be done through `RUST_LOG=wasm_pack` instead of `-v` flags.
 
     [issue/425]: https://github.com/rustwasm/wasm-pack/issues/425
     [pull/434]: https://github.com/rustwasm/wasm-pack/pull/434
@@ -1132,7 +1790,7 @@
   - **Move binary installation to its own crate - [drager], [issue/384] [pull/415]**
 
     In `wasm-pack 0.5.0`, we move away from `cargo install`ing many of the tools that `wasm-pack` orchestrates. Because
-    we used `cargo install`, this required an end user to sit through the compilation of each tool, which was a 
+    we used `cargo install`, this required an end user to sit through the compilation of each tool, which was a
     prohibitively long time. We moved, instead, to building, and then installing, binaries of the tools. This sped up
     build times dramatically!
 
@@ -1148,7 +1806,7 @@
 
     The story of error message handling in `wasm-pack` has not been the prettiest. We originally were manually implementing
     errors, adding the [`failure` crate] at one point, but not fully updating the entire codebase. With this PR, we are
-    nearly completely handling errors with `failure`, bringing the code into a much more maintainable and 
+    nearly completely handling errors with `failure`, bringing the code into a much more maintainable and
     pleasant-to-work-on place.
 
     [`failure` crate]: https://crates.io/crates/failure
@@ -1161,7 +1819,7 @@
   - **Read the `Cargo.toml` file only once - [fitzgen], [issue/25] [pull/431]**
 
     This is a very fun one since it fixes one of the original issues filed by `ag_dubs` at the very beginning of `wasm-pack`
-    development. In a rush to implement a POC tool, `ag_dubs` noted for posterity that the `Cargo.toml` was being read 
+    development. In a rush to implement a POC tool, `ag_dubs` noted for posterity that the `Cargo.toml` was being read
     multiple times (twice), when it did not need to be. Thanks to `fitzgen` now it's read only once! A minor performance
     improvement in the scheme of things, but a nice one :)
 
@@ -1218,7 +1876,7 @@
     [issue/287]: https://github.com/rustwasm/wasm-pack/issues/287
     [pull/392]: https://github.com/rustwasm/wasm-pack/pull/392
 
-  - **Less scary missing field  messages - [mstallmo], [issue/393] [pull/394]**
+  - **Less scary missing field messages - [mstallmo], [issue/393] [pull/394]**
 
     After watching a livestream of someone using `wasm-pack`, [fitzgen] noted that folks
     seemed pretty alarmed by the loud warning about missing optional manifest fields.
@@ -1227,7 +1885,7 @@
 
     [issue/393]: https://github.com/rustwasm/wasm-pack/issues/393
     [pull/394]: https://github.com/rustwasm/wasm-pack/pull/394
-  
+
   - **Add `exit_status` to CLI errors - [konstin], [issue/291] [pull/387]**
 
     We'd been hiding these- but we shouldn't have been!
@@ -1239,7 +1897,7 @@
   - **Remove lingering forced nightly usage - [alexcrichton], [pull/383]**
 
     In 0.5.0 we removed all forced nightly usage as we depend on `~1.30` which is now
-    available on both nightly and beta channels! We had a bit of a race condition with 
+    available on both nightly and beta channels! We had a bit of a race condition with
     that PR and the `wasm-pack test` PR, and missed a few as a result! This removes all
     lingering forced nightly, which only affected the `wasm-pack test` command.
 
@@ -1263,13 +1921,11 @@
   - **Leverage `failure::Error` consistently - [drager], [issue/280] [pull/401]**
 
     This PR finally makes it so that `wasm-pack` is handling errors in a consistent
-    way across the codebase. 
+    way across the codebase.
 
     [drager]: https://github.com/drager
     [issue/280]: https://github.com/rustwasm/wasm-pack/issues/280
     [pull/401]: https://github.com/rustwasm/wasm-pack/pull/401
-
-  
 
 ## ☀️ 0.5.0
 
@@ -1283,7 +1939,7 @@
 
     This PR also has a complete rework of our documentation.
 
-    Check it out [here](https://rustwasm.github.io/wasm-pack/)!
+    Check it out [here](https://wasm-bindgen.github.io/wasm-pack/)!
 
   - #### 🍱 Module Support
 
@@ -1293,16 +1949,16 @@
       are generated by the project.
 
       Previously, we generated a JavaScript file and placed it in the `main` key, regardless
-      of what you were targeting, ES6 and Node.js alike. 
+      of what you were targeting, ES6 and Node.js alike.
 
       We have received a lot of requests for `wasm-pack` to generate "isomorphic" packages,
-      that contain assets that could work on both Node.js and ES6, and this led to us 
+      that contain assets that could work on both Node.js and ES6, and this led to us
       looking more closely at how we are using `package.json`.
 
       With this release, we will do the following:
 
       - `--target browser`: By default, we generate JS that is an ES6 module. We used to put
-        this in the `main` field. Now we put it in the `module` field. We also add 
+        this in the `main` field. Now we put it in the `module` field. We also add
         `sideEffects: false` so that bundlers that want to tree shake can.
 
       - `--target nodejs`: This target doesn't change. We put generated JS that is a
@@ -1354,7 +2010,7 @@
 
   - #### 🎏 New Flags
 
-    - **New target, bare JavaScript: `--target no-modules`  - [ashleygwilliams], [issue/317] [pull/327]**
+    - **New target, bare JavaScript: `--target no-modules` - [ashleygwilliams], [issue/317] [pull/327]**
 
       `wasm-bindgen` offers a `no-modules` flag that until now, we didn't support. This flag
       produces bare, no modules JavaScript. So if that's your thing, this target is for you!
@@ -1364,7 +2020,7 @@
 
     - **`--access` flag for `wasm-pack` publish - [ashleygwilliams], [issue/297] [pull/299]**
 
-      Many of our tutorials use scopes to help prevent folks from attempting to publish 
+      Many of our tutorials use scopes to help prevent folks from attempting to publish
       packages that will lead to npm Registry errors because the package name already exists.
 
       However, by default, scoped packages are assumed by the npm registry to be private, and
@@ -1376,7 +2032,7 @@
       [pull/299]: https://github.com/rustwasm/wasm-pack/pull/299
 
   - #### ✅ New Checks
-    
+
     - **rustc version check - [ashleygwilliams], [issue/351] [pull/353]**
 
       Now that we have a new fangled installer, there's a chance that folks might install `wasm-pack`
@@ -1490,54 +2146,54 @@
       moment they just want to hurry up and use it already.
 
       Say hello to the new `wasm-pack` installer- we have an executable for Windows
-      and a `curl` script for *nix users. Not pleased with that? File an issue for your
+      and a `curl` script for \*nix users. Not pleased with that? File an issue for your
       preferred distribution method and we'll do our best to get it working!
 
       This is experimental- so please try it out and file issues as you run into things!
       You'll always be able to use `cargo install` as a backup.
 
-      Checkout the new installer [here](https://rustwasm.github.io/wasm-pack/installer/)!
+      Checkout the new installer [here](https://wasm-bindgen.github.io/wasm-pack/installer/)!
 
       [pull/307]: https://github.com/rustwasm/wasm-pack/pull/307
 
 - ### 🛠️ Maintenance
 
-    - **testing fixture strategy improvements - [fitzgen], [pull/211] [pull/323]**
+  - **testing fixture strategy improvements - [fitzgen], [pull/211] [pull/323]**
 
-      [pull/211]: https://github.com/rustwasm/wasm-pack/pull/211
-      [pull/323]: https://github.com/rustwasm/wasm-pack/pull/323
+    [pull/211]: https://github.com/rustwasm/wasm-pack/pull/211
+    [pull/323]: https://github.com/rustwasm/wasm-pack/pull/323
 
-    - **split testing utils into separate files - [csmoe], [issue/231] [pull/216]**
+  - **split testing utils into separate files - [csmoe], [issue/231] [pull/216]**
 
-      [issue/231]: https://github.com/rustwasm/wasm-pack/issues/231
-      [pull/216]: https://github.com/rustwasm/wasm-pack/pull/216
+    [issue/231]: https://github.com/rustwasm/wasm-pack/issues/231
+    [pull/216]: https://github.com/rustwasm/wasm-pack/pull/216
 
-    - **update dependencies - [ashleygwilliams], [issue/319] [pull/320]**
+  - **update dependencies - [ashleygwilliams], [issue/319] [pull/320]**
 
-      [issue/319]: https://github.com/rustwasm/wasm-pack/issues/319
-      [pull/320]: https://github.com/rustwasm/wasm-pack/pull/320
+    [issue/319]: https://github.com/rustwasm/wasm-pack/issues/319
+    [pull/320]: https://github.com/rustwasm/wasm-pack/pull/320
 
 - ### 📖 Documentation
 
-    - **improve readability of warnings about missing optional fields - [twilco], [pull/296]**
+  - **improve readability of warnings about missing optional fields - [twilco], [pull/296]**
 
-      A little punctuation goes a long way. Error message improvement PRs are the best.
+    A little punctuation goes a long way. Error message improvement PRs are the best.
 
-      [twilco]: https://github.com/twilco
-      [pull/296]: https://github.com/rustwasm/wasm-pack/pull/296
+    [twilco]: https://github.com/twilco
+    [pull/296]: https://github.com/rustwasm/wasm-pack/pull/296
 
-    - **update links in README - [alexcrichton], [pull/300]**
+  - **update links in README - [alexcrichton], [pull/300]**
 
-      We had a real dicey documentation situation for a while. Sorry about that, and thank
-      you SO MUCH to all the folks who filed PRs to fix it.
+    We had a real dicey documentation situation for a while. Sorry about that, and thank
+    you SO MUCH to all the folks who filed PRs to fix it.
 
-      [pull/300]: https://github.com/rustwasm/wasm-pack/pull/300
+    [pull/300]: https://github.com/rustwasm/wasm-pack/pull/300
 
-    - **fix broken links in book by using relative paths - [mstallmo], [issue/325] [pull/328]**
+  - **fix broken links in book by using relative paths - [mstallmo], [issue/325] [pull/328]**
 
-      [mstallmo]: https://github.com/mstallmo
-      [issue/325]: https://github.com/rustwasm/wasm-pack/issues/325
-      [pull/328]: https://github.com/rustwasm/wasm-pack/pull/328
+    [mstallmo]: https://github.com/mstallmo
+    [issue/325]: https://github.com/rustwasm/wasm-pack/issues/325
+    [pull/328]: https://github.com/rustwasm/wasm-pack/pull/328
 
 ## ✨ 0.4.2
 
@@ -1575,7 +2231,7 @@
 
   - **use `PathBuf` instead of `String` for paths - [Mackiovello], [pull/220]**
 
-    This is mostly a maintenance PR  but does fix one very small bug- depending on if you add a trailing slash to
+    This is mostly a maintenance PR but does fix one very small bug- depending on if you add a trailing slash to
     a path that you pass to `init`, you might have seen an extra `/`! Now that we're using a proper Type to
     handle this, that's much better, and in general, all the operations using paths are more robust now.
 
@@ -1588,9 +2244,8 @@
     The Rust 2018 edition marches on and we are seeing feature flags drop like flies :) Instead of a whole slew
     of feature flags, we now only need one, `#![feature(use_extern_macros)]`, and that one is also not long for
     this world :)
-  
-    [pull/226]: https://github.com/rustwasm/wasm-pack/pull/226
 
+    [pull/226]: https://github.com/rustwasm/wasm-pack/pull/226
 
 ## ⭐ 0.4.1
 
@@ -1598,7 +2253,7 @@
 
   - **fix `files` key value for projects build for `nodejs` target - [ashleygwilliams], [issue/199] [pull/205]**
 
-    We became aware that the `files` key in `package.json` did not include the additional `_bg.js` file that 
+    We became aware that the `files` key in `package.json` did not include the additional `_bg.js` file that
     `wasm-bindgen` generates for projects being built for the `nodejs` target. This resulted in the file not
     being included in the published package and resulted in a `Module Not Found` error for folks.
 
@@ -1657,17 +2312,17 @@ to `wasm-pack`. Welcome ya'll! We're so glad to have you!
 
 - #### 🎏 New Flags
 
-  - **`--mode` flag for skipping steps when calling `init` - [ashleygwilliams], [pull/186]** 
+  - **`--mode` flag for skipping steps when calling `init` - [ashleygwilliams], [pull/186]**
 
-      After teaching and working with `wasm-pack` for some time, it's clear that people would
-      like the flexibility to run some of the steps included in the `init` command and not others.
-      This release introduces a `--mode` flag that you can pass to `init`. The two modes currently
-      available are `skip-build` and `no-installs` and they are explained below. In the future, 
-      we are looking to change the `init` interface, and potentially to split it into two commands.
-      If you have thoughts or opinions on this, please weigh in on [issue/188]!
+    After teaching and working with `wasm-pack` for some time, it's clear that people would
+    like the flexibility to run some of the steps included in the `init` command and not others.
+    This release introduces a `--mode` flag that you can pass to `init`. The two modes currently
+    available are `skip-build` and `no-installs` and they are explained below. In the future,
+    we are looking to change the `init` interface, and potentially to split it into two commands.
+    If you have thoughts or opinions on this, please weigh in on [issue/188]!
 
-      [issue/188]: https://github.com/ashleygwilliams/wasm-pack/issues/188
-      [pull/186]: https://github.com/ashleygwilliams/wasm-pack/pull/186
+    [issue/188]: https://github.com/ashleygwilliams/wasm-pack/issues/188
+    [pull/186]: https://github.com/ashleygwilliams/wasm-pack/pull/186
 
     - **`skip-build` mode - [kohensu], [pull/151]**
 
@@ -1694,14 +2349,14 @@ to `wasm-pack`. Welcome ya'll! We're so glad to have you!
       env is set up correctly- now the `--mode no-install` option allows you to
       do this.
 
-  - **`--debug`  - [clanehin], [pull/127]**
+  - **`--debug` - [clanehin], [pull/127]**
 
     ```
     wasm-pack init --debug
     ```
 
     Find yourself needing to compile your Rust in `development` mode? You can now
-    pass the `--debug` flag to do so! Thanks so much to [clanehin] for filing 
+    pass the `--debug` flag to do so! Thanks so much to [clanehin] for filing
     [issue/126] for this feature... and then implementing it!
 
     [pull/127]: https://github.com/ashleygwilliams/wasm-pack/pull/127
@@ -1805,7 +2460,7 @@ to `wasm-pack`. Welcome ya'll! We're so glad to have you!
 - **cleaned up the README - [ashleygwilliams], [pull/155]**
 
   Our `README` was struggling with a common problem- doing too much at once.
-  More specifically, it wasn't clear who the audience was, contributers or 
+  More specifically, it wasn't clear who the audience was, contributers or
   end users? We've cleaned up our README and created a document specifically
   to help contributors get up and running.
 
@@ -1815,13 +2470,13 @@ to `wasm-pack`. Welcome ya'll! We're so glad to have you!
 
 Babby's first point release! Are we a real project now?
 
-### 🤕 Fixes 
+### 🤕 Fixes
 
 - **fixed `init` `Is a Directory` error - [ashleygwilliams], [pull/139]**
 
   Our new logging feature accidentally introduced a regression into 0.3.0. When
   calling `wasm-pack init`, if a directory was not passed, a user would receive
-  a "Is a Directory" Error. Sorry about that! Thanks to [jbolila] for filing 
+  a "Is a Directory" Error. Sorry about that! Thanks to [jbolila] for filing
   [issue/136]!
 
 [pull/139]: https://github.com/ashleygwilliams/wasm-pack/pull/139
@@ -1831,8 +2486,8 @@ Babby's first point release! Are we a real project now?
 - **typescript files were not included in published package - [danreeves], [pull/138]**
 
   Generating Typescript type files by default was a pretty rad feature in
-  0.3.0 but we accidentally forgot to ensure they were included in the 
-  published package. Thanks so much to [danreeves] for catching this issue 
+  0.3.0 but we accidentally forgot to ensure they were included in the
+  published package. Thanks so much to [danreeves] for catching this issue
   and fixing it for us!
 
 [danreeves]: https://github.com/danreeves
@@ -1855,7 +2510,7 @@ Babby's first point release! Are we a real project now?
 
   `wasm-bindgen-cli` is able to generate a JS module wrapper for generated wasm files
   for both ES6 modules and CommonJS. Up until now, we only used wasm-bindgen's default
-  behavior, ES6 modules. You can now pass a `--target` flag with either `nodejs` or 
+  behavior, ES6 modules. You can now pass a `--target` flag with either `nodejs` or
   `browser` to generate the type of module you want to use. Defaults to `browser` if not
   passed.
 
@@ -1911,13 +2566,13 @@ Babby's first point release! Are we a real project now?
   tab of our GitHub repo.
 
 [Releases]: https://github.com/ashleygwilliams/wasm-pack/releases
-[pull/135]: https://github.com/ashleygwilliams/wasm-pack/pull/135   
+[pull/135]: https://github.com/ashleygwilliams/wasm-pack/pull/135
 
-### 🛠️ Maintenance 
+### 🛠️ Maintenance
 
 - **remove `quicli` dependency - [mgattozzi], [pull/131]**
 
-  While `quicli` is a great way to get started writing a CLI app in Rust- it's not meant for 
+  While `quicli` is a great way to get started writing a CLI app in Rust- it's not meant for
   large, mature applications. Now that `wasm-pack` is bigger and has many active users, we've
   removed this dependency to unblock further development on the tool.
 
@@ -1995,7 +2650,7 @@ handling for improved user experience!
 
 ### 🛠️ Maintenance and 📖 Documentation
 
-Thanks so much to [mgattozzi], [data-pup], [sendilkumarn], [Andy-Bell], 
+Thanks so much to [mgattozzi], [data-pup], [sendilkumarn], [Andy-Bell],
 [steveklabnik], [jasondavies], and [edsrzf] for all the awesome refactoring,
 documentation, typo-fixing, and testing work. We appreciate it so much!
 
@@ -2006,6 +2661,6 @@ documentation, typo-fixing, and testing work. We appreciate it so much!
 [jasondavies]: https://github.com/jasondavies
 [edsrzf]: https://github.com/edsrzf
 
-## 💥  0.1.0
+## 💥 0.1.0
 
-- First release! 
+- First release!

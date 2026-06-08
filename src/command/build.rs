@@ -1,25 +1,26 @@
 //! Implementation of the `wasm-pack build` command.
 
+use crate::bindgen;
+use crate::build;
+use crate::cache;
+use crate::command::utils::{create_pkg_dir, get_crate_path};
+use crate::emoji;
+use crate::install::{self, InstallMode, Tool};
+use crate::license;
+use crate::lockfile::Lockfile;
+use crate::manifest;
+use crate::readme;
 use crate::wasm_opt;
+use crate::PBAR;
+use anyhow::{anyhow, bail, Error, Result};
 use binary_install::Cache;
-use bindgen;
-use build;
-use cache;
-use command::utils::{create_pkg_dir, get_crate_path};
-use emoji;
-use failure::Error;
-use install::{self, InstallMode, Tool};
-use license;
-use lockfile::Lockfile;
+use clap::Args;
 use log::info;
-use manifest;
-use readme;
+use path_clean::PathClean;
 use std::fmt;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Instant;
-use structopt::clap::AppSettings;
-use PBAR;
 
 /// Everything required to configure and run the `wasm-pack build` command.
 #[allow(missing_docs)]
@@ -29,7 +30,11 @@ pub struct Build {
     pub scope: Option<String>,
     pub disable_dts: bool,
     pub skip_gitignore: bool,
+    pub weak_refs: bool,
+    pub reference_types: bool,
     pub target: Target,
+    pub no_pack: bool,
+    pub no_opt: bool,
     pub profile: BuildProfile,
     pub mode: InstallMode,
     pub out_dir: PathBuf,
@@ -37,6 +42,9 @@ pub struct Build {
     pub bindgen: Option<install::Status>,
     pub cache: Cache,
     pub extra_options: Vec<String>,
+    pub panic_unwind: bool,
+    target_triple: String,
+    wasm_path: Option<String>,
 }
 
 /// What sort of output we're going to be generating and flags we're invoking
@@ -82,7 +90,7 @@ impl fmt::Display for Target {
 
 impl FromStr for Target {
     type Err = Error;
-    fn from_str(s: &str) -> Result<Self, Error> {
+    fn from_str(s: &str) -> Result<Self> {
         match s {
             "bundler" | "browser" => Ok(Target::Bundler),
             "web" => Ok(Target::Web),
@@ -96,7 +104,7 @@ impl FromStr for Target {
 
 /// The build profile controls whether optimizations, debug info, and assertions
 /// are enabled or disabled.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum BuildProfile {
     /// Enable assertions and debug info. Disable optimizations.
     Dev,
@@ -104,31 +112,27 @@ pub enum BuildProfile {
     Release,
     /// Enable optimizations and debug info. Disable assertions.
     Profiling,
+    /// User-defined profile with --profile flag
+    Custom(String),
 }
 
 /// Everything required to configure and run the `wasm-pack build` command.
-#[derive(Debug, StructOpt)]
-#[structopt(
-    // Allows unknown `--option`s to be parsed as positional arguments, so we can forward it to `cargo`.
-    setting = AppSettings::AllowLeadingHyphen,
-
-    // Allows `--` to be parsed as an argument, so we can forward it to `cargo`.
-    setting = AppSettings::TrailingVarArg,
-)]
+#[derive(Debug, Args)]
+#[command(allow_hyphen_values = true, trailing_var_arg = true)]
 pub struct BuildOptions {
     /// The path to the Rust crate. If not set, searches up the path from the current directory.
-    #[structopt(parse(from_os_str))]
+    #[clap()]
     pub path: Option<PathBuf>,
 
     /// The npm scope to use in package.json, if any.
-    #[structopt(long = "scope", short = "s")]
+    #[clap(long = "scope", short = 's')]
     pub scope: Option<String>,
 
-    #[structopt(long = "mode", short = "m", default_value = "normal")]
+    #[clap(long = "mode", short = 'm', default_value = "normal")]
     /// Sets steps to be run. [possible values: no-install, normal, force]
     pub mode: InstallMode,
 
-    #[structopt(long = "no-typescript")]
+    #[clap(long = "no-typescript")]
     /// By default a *.d.ts file is generated for the generated JS file, but
     /// this flag will disable generating this TypeScript file.
     pub disable_dts: bool,
@@ -139,34 +143,64 @@ pub struct BuildOptions {
 
     #[structopt(long = "target", short = "t", default_value = "bundler")]
     /// Sets the target environment. [possible values: bundler, nodejs, web, no-modules]
+    #[clap(long = "weak-refs")]
+    /// Enable usage of the JS weak references proposal.
+    pub weak_refs: bool,
+
+    #[clap(long = "reference-types")]
+    /// Enable usage of WebAssembly reference types.
+    pub reference_types: bool,
+
+    #[clap(long = "target", short = 't', default_value = "bundler")]
+    /// Sets the target environment. [possible values: bundler, nodejs, web, no-modules, deno]
     pub target: Target,
 
-    #[structopt(long = "debug")]
+    #[clap(long = "debug")]
     /// Deprecated. Renamed to `--dev`.
     pub debug: bool,
 
-    #[structopt(long = "dev")]
+    #[clap(long = "dev")]
     /// Create a development build. Enable debug info, and disable
     /// optimizations.
     pub dev: bool,
 
-    #[structopt(long = "release")]
+    #[clap(long = "release")]
     /// Create a release build. Enable optimizations and disable debug info.
     pub release: bool,
 
-    #[structopt(long = "profiling")]
+    #[clap(long = "profiling")]
     /// Create a profiling build. Enable optimizations and debug info.
     pub profiling: bool,
 
-    #[structopt(long = "out-dir", short = "d", default_value = "pkg")]
+    #[clap(long = "profile")]
+    /// User-defined profile with --profile flag
+    pub profile: Option<String>,
+
+    #[clap(long = "out-dir", short = 'd', default_value = "pkg")]
     /// Sets the output directory with a relative path.
     pub out_dir: String,
 
-    #[structopt(long = "out-name")]
+    #[clap(long = "out-name")]
     /// Sets the output file names. Defaults to package name.
     pub out_name: Option<String>,
 
-    #[structopt(allow_hyphen_values = true)]
+    #[clap(long = "no-pack", alias = "no-package")]
+    /// Option to not generate a package.json
+    pub no_pack: bool,
+
+    #[clap(long = "no-opt", alias = "no-optimization")]
+    /// Option to skip optimization with wasm-opt
+    pub no_opt: bool,
+
+    #[clap(long = "panic-unwind")]
+    /// Build with panic=unwind. Requires the nightly Rust toolchain; uses
+    /// `-Z build-std` to rebuild `std` with `-Cpanic=unwind` so panics can be
+    /// caught at FFI boundaries instead of aborting the WebAssembly instance.
+    /// The nightly toolchain, `rust-src` component, and nightly
+    /// `wasm32-unknown-unknown` target will be installed via `rustup` if not
+    /// already present.
+    pub panic_unwind: bool,
+
     /// List of extra options to pass to `cargo build`
     pub extra_options: Vec<String>,
 }
@@ -179,23 +213,29 @@ impl Default for BuildOptions {
             mode: InstallMode::default(),
             disable_dts: false,
             skip_gitignore: false,
+            weak_refs: false,
+            reference_types: false,
             target: Target::default(),
             debug: false,
             dev: false,
+            no_pack: false,
+            no_opt: false,
             release: false,
             profiling: false,
+            profile: None,
             out_dir: String::new(),
             out_name: None,
+            panic_unwind: false,
             extra_options: Vec::new(),
         }
     }
 }
 
-type BuildStep = fn(&mut Build) -> Result<(), Error>;
+type BuildStep = fn(&mut Build) -> Result<()>;
 
 impl Build {
     /// Construct a build command from the given options.
-    pub fn try_from_opts(mut build_opts: BuildOptions) -> Result<Self, Error> {
+    pub fn try_from_opts(mut build_opts: BuildOptions) -> Result<Self> {
         if let Some(path) = &build_opts.path {
             if path.to_string_lossy().starts_with("--") {
                 let path = build_opts.path.take().unwrap();
@@ -206,16 +246,44 @@ impl Build {
         }
         let crate_path = get_crate_path(build_opts.path)?;
         let crate_data = manifest::CrateData::new(&crate_path, build_opts.out_name.clone())?;
-        let out_dir = crate_path.join(PathBuf::from(build_opts.out_dir));
+        let out_dir = crate_path.join(PathBuf::from(build_opts.out_dir)).clean();
 
         let dev = build_opts.dev || build_opts.debug;
-        let profile = match (dev, build_opts.release, build_opts.profiling) {
-            (false, false, false) | (false, true, false) => BuildProfile::Release,
-            (true, false, false) => BuildProfile::Dev,
-            (false, false, true) => BuildProfile::Profiling,
-            // Unfortunately, `structopt` doesn't expose clap's `conflicts_with`
+        let profile = match (
+            dev,
+            build_opts.release,
+            build_opts.profiling,
+            build_opts.profile,
+        ) {
+            (false, false, false, None) | (false, true, false, None) => BuildProfile::Release,
+            (true, false, false, None) => BuildProfile::Dev,
+            (false, false, true, None) => BuildProfile::Profiling,
+            (false, false, false, Some(profile)) => BuildProfile::Custom(profile),
+            // Unfortunately, `clap` doesn't expose clap's `conflicts_with`
             // functionality yet, so we have to implement it ourselves.
-            _ => bail!("Can only supply one of the --dev, --release, or --profiling flags"),
+            _ => bail!("Can only supply one of the --dev, --release, --profiling, or --profile 'name' flags"),
+        };
+
+        let extra_options = build_opts.extra_options;
+
+        // Resolve the cargo target triple in the same precedence order cargo
+        // uses, so wasm-pack and cargo always agree on what's being built:
+        //   1. `--target` in extra cargo arguments (after `--`)
+        //   2. `CARGO_BUILD_TARGET` env var
+        //   3. `[build] target = "..."` in `.cargo/config.toml` (walking up
+        //      from the crate dir, then `$CARGO_HOME/config.toml`)
+        //   4. fallback to `wasm32-unknown-unknown`
+        let target_triple = {
+            let mut iter = extra_options.iter();
+            let from_args = iter
+                .by_ref()
+                .find(|o| o.as_str() == "--target")
+                .and_then(|_| iter.next())
+                .cloned();
+            from_args
+                .or_else(|| std::env::var("CARGO_BUILD_TARGET").ok())
+                .or_else(|| read_cargo_build_target(&crate_path))
+                .unwrap_or_else(|| "wasm32-unknown-unknown".to_string())
         };
 
         Ok(Build {
@@ -224,14 +292,21 @@ impl Build {
             scope: build_opts.scope,
             disable_dts: build_opts.disable_dts,
             skip_gitignore: build_opts.skip_gitignore,
+            weak_refs: build_opts.weak_refs,
+            reference_types: build_opts.reference_types,
             target: build_opts.target,
+            no_pack: build_opts.no_pack,
+            no_opt: build_opts.no_opt,
             profile,
             mode: build_opts.mode,
             out_dir,
             out_name: build_opts.out_name,
             bindgen: None,
             cache: cache::get_wasm_pack_cache()?,
-            extra_options: build_opts.extra_options,
+            target_triple,
+            extra_options,
+            panic_unwind: build_opts.panic_unwind,
+            wasm_path: None,
         })
     }
 
@@ -241,8 +316,8 @@ impl Build {
     }
 
     /// Execute this `Build` command.
-    pub fn run(&mut self) -> Result<(), Error> {
-        let process_steps = Build::get_process_steps(self.mode);
+    pub fn run(&mut self) -> Result<()> {
+        let process_steps = Build::get_process_steps(self.mode, self.no_pack, self.no_opt);
 
         let started = Instant::now();
 
@@ -267,7 +342,11 @@ impl Build {
         Ok(())
     }
 
-    fn get_process_steps(mode: InstallMode) -> Vec<(&'static str, BuildStep)> {
+    fn get_process_steps(
+        mode: InstallMode,
+        no_pack: bool,
+        no_opt: bool,
+    ) -> Vec<(&'static str, BuildStep)> {
         macro_rules! steps {
             ($($name:ident),+) => {
                 {
@@ -289,20 +368,36 @@ impl Build {
                 ]);
             }
         }
+
         steps.extend(steps![
             step_build_wasm,
             step_create_dir,
-            step_copy_readme,
-            step_copy_license,
             step_install_wasm_bindgen,
             step_run_wasm_bindgen,
-            step_run_wasm_opt,
-            step_create_json,
         ]);
+
+        if !no_opt {
+            steps.extend(steps![step_run_wasm_opt]);
+        }
+
+        if !no_pack {
+            steps.extend(steps![
+                step_create_json,
+                step_copy_readme,
+                step_copy_license,
+            ]);
+        }
+
         steps
     }
 
-    fn step_check_rustc_version(&mut self) -> Result<(), Error> {
+    fn step_check_rustc_version(&mut self) -> Result<()> {
+        // The stable rustc version is irrelevant when --panic-unwind is set,
+        // since cargo will be invoked via `+nightly`.
+        if self.panic_unwind {
+            info!("Skipping rustc version check (using nightly via --panic-unwind).");
+            return Ok(());
+        }
         info!("Checking rustc version...");
         let version = build::check_rustc_version()?;
         let msg = format!("rustc version is {}.", version);
@@ -310,43 +405,48 @@ impl Build {
         Ok(())
     }
 
-    fn step_check_crate_config(&mut self) -> Result<(), Error> {
+    fn step_check_crate_config(&mut self) -> Result<()> {
         info!("Checking crate configuration...");
         self.crate_data.check_crate_config()?;
         info!("Crate is correctly configured.");
         Ok(())
     }
 
-    fn step_check_for_wasm_target(&mut self) -> Result<(), Error> {
+    fn step_check_for_wasm_target(&mut self) -> Result<()> {
+        if self.panic_unwind {
+            info!("Checking nightly toolchain prerequisites for panic=unwind...");
+            build::wasm_target::check_nightly_prerequisites()?;
+            info!("Nightly prerequisites check was successful.");
+            return Ok(());
+        }
         info!("Checking for wasm-target...");
-        build::wasm_target::check_for_wasm32_target()?;
+        build::wasm_target::check_for_wasm_target(&self.target_triple)?;
         info!("Checking for wasm-target was successful.");
         Ok(())
     }
 
-    fn step_build_wasm(&mut self) -> Result<(), Error> {
+    fn step_build_wasm(&mut self) -> Result<()> {
         info!("Building wasm...");
-        build::cargo_build_wasm(&self.crate_path, self.profile, &self.extra_options)?;
-
-        info!(
-            "wasm built at {:#?}.",
-            &self
-                .crate_path
-                .join("target")
-                .join("wasm32-unknown-unknown")
-                .join("release")
-        );
+        let wasm_path = build::cargo_build_wasm(
+            &self.crate_path,
+            self.profile.clone(),
+            &self.extra_options,
+            &self.target_triple,
+            self.panic_unwind,
+        )?;
+        info!("wasm built at {wasm_path:#?}.");
+        self.wasm_path = Some(wasm_path);
         Ok(())
     }
 
-    fn step_create_dir(&mut self) -> Result<(), Error> {
+    fn step_create_dir(&mut self) -> Result<()> {
         info!("Creating a pkg directory...");
         create_pkg_dir(&self.out_dir, self.skip_gitignore)?;
         info!("Created a pkg directory at {:#?}.", &self.crate_path);
         Ok(())
     }
 
-    fn step_create_json(&mut self) -> Result<(), Error> {
+    fn step_create_json(&mut self) -> Result<()> {
         self.crate_data.write_package_json(
             &self.out_dir,
             &self.scope,
@@ -360,21 +460,21 @@ impl Build {
         Ok(())
     }
 
-    fn step_copy_readme(&mut self) -> Result<(), Error> {
+    fn step_copy_readme(&mut self) -> Result<()> {
         info!("Copying readme from crate...");
-        readme::copy_from_crate(&self.crate_path, &self.out_dir)?;
+        readme::copy_from_crate(&self.crate_data, &self.crate_path, &self.out_dir)?;
         info!("Copied readme from crate to {:#?}.", &self.out_dir);
         Ok(())
     }
 
-    fn step_copy_license(&mut self) -> Result<(), failure::Error> {
+    fn step_copy_license(&mut self) -> Result<()> {
         info!("Copying license from crate...");
         license::copy_from_crate(&self.crate_data, &self.crate_path, &self.out_dir)?;
         info!("Copied license from crate to {:#?}.", &self.out_dir);
         Ok(())
     }
 
-    fn step_install_wasm_bindgen(&mut self) -> Result<(), failure::Error> {
+    fn step_install_wasm_bindgen(&mut self) -> Result<()> {
         info!("Identifying wasm-bindgen dependency...");
         let lockfile = Lockfile::new(&self.crate_data)?;
         let bindgen_version = lockfile.require_wasm_bindgen()?;
@@ -390,30 +490,39 @@ impl Build {
         Ok(())
     }
 
-    fn step_run_wasm_bindgen(&mut self) -> Result<(), Error> {
+    fn step_run_wasm_bindgen(&mut self) -> Result<()> {
         info!("Building the wasm bindings...");
         bindgen::wasm_bindgen_build(
+            self.wasm_path.as_ref().unwrap(),
             &self.crate_data,
             self.bindgen.as_ref().unwrap(),
             &self.out_dir,
             &self.out_name,
             self.disable_dts,
+            self.weak_refs,
+            self.reference_types,
             self.target,
-            self.profile,
+            self.profile.clone(),
         )?;
         info!("wasm bindings were built at {:#?}.", &self.out_dir);
         Ok(())
     }
 
-    fn step_run_wasm_opt(&mut self) -> Result<(), Error> {
-        let args = match self
+    fn step_run_wasm_opt(&mut self) -> Result<()> {
+        let mut args = match self
             .crate_data
-            .configured_profile(self.profile)
+            .configured_profile(self.profile.clone())
             .wasm_opt_args()
         {
             Some(args) => args,
             None => return Ok(()),
         };
+        if self.reference_types {
+            args.push("--enable-reference-types".into());
+        }
+        if build::is_tier3_wasm(&self.target_triple) {
+            args.push("--enable-memory64".into());
+        }
         info!("executing wasm-opt with {:?}", args);
         wasm_opt::run(
             &self.cache,
@@ -421,9 +530,102 @@ impl Build {
             &args,
             self.mode.install_permitted(),
         ).map_err(|e| {
-            format_err!(
+            anyhow!(
                 "{}\nTo disable `wasm-opt`, add `wasm-opt = false` to your package metadata in your `Cargo.toml`.", e
             )
         })
+    }
+}
+
+/// Read the cargo `[build] target` setting from `.cargo/config.toml`.
+///
+/// Mirrors cargo's own discovery: walk up from `crate_path` checking
+/// `.cargo/config.toml` at each ancestor (workspace-aware) and finally
+/// check `$CARGO_HOME/config.toml` for user-level defaults. The first
+/// file that declares `[build] target = "..."` wins.
+pub(crate) fn read_cargo_build_target(crate_path: &std::path::Path) -> Option<String> {
+    for dir in crate_path.ancestors() {
+        if let Some(target) = parse_build_target(&dir.join(".cargo/config.toml")) {
+            return Some(target);
+        }
+    }
+    // Cargo falls back to $CARGO_HOME/config.toml (default ~/.cargo/config.toml)
+    // for user-wide settings. Honour the same precedence.
+    let cargo_home = std::env::var_os("CARGO_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|| dirs::home_dir().map(|h| h.join(".cargo")))?;
+    parse_build_target(&cargo_home.join("config.toml"))
+}
+
+/// Parse `[build] target = "..."` from a single config file, if it
+/// exists and is well-formed. Returns `None` for missing files or
+/// configs that don't declare a target.
+fn parse_build_target(path: &std::path::Path) -> Option<String> {
+    let cfg = std::fs::read_to_string(path).ok()?;
+    let parsed: toml::Value = toml::from_str(&cfg).ok()?;
+    parsed
+        .get("build")?
+        .get("target")?
+        .as_str()
+        .map(str::to_owned)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn read_cargo_build_target_walks_up_to_workspace_root() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path();
+        // Workspace root holds the .cargo/config.toml.
+        std::fs::create_dir_all(root.join(".cargo")).unwrap();
+        std::fs::write(
+            root.join(".cargo/config.toml"),
+            "[build]\ntarget = \"wasm64-unknown-unknown\"\n",
+        )
+        .unwrap();
+        // Crate lives two levels deeper with no config of its own.
+        let crate_path = root.join("crates/foo");
+        std::fs::create_dir_all(&crate_path).unwrap();
+
+        assert_eq!(
+            read_cargo_build_target(&crate_path),
+            Some("wasm64-unknown-unknown".to_string())
+        );
+    }
+
+    #[test]
+    fn read_cargo_build_target_prefers_crate_over_workspace() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let root = tmp.path();
+        std::fs::create_dir_all(root.join(".cargo")).unwrap();
+        std::fs::write(
+            root.join(".cargo/config.toml"),
+            "[build]\ntarget = \"wasm32-unknown-unknown\"\n",
+        )
+        .unwrap();
+        let crate_path = root.join("crates/foo");
+        std::fs::create_dir_all(crate_path.join(".cargo")).unwrap();
+        std::fs::write(
+            crate_path.join(".cargo/config.toml"),
+            "[build]\ntarget = \"wasm64-unknown-unknown\"\n",
+        )
+        .unwrap();
+
+        // Crate-level config should win.
+        assert_eq!(
+            read_cargo_build_target(&crate_path),
+            Some("wasm64-unknown-unknown".to_string())
+        );
+    }
+
+    #[test]
+    fn read_cargo_build_target_missing_returns_none() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        // Use a deliberately-unreachable CARGO_HOME so the test is hermetic
+        // (otherwise it would race with developer state).
+        std::env::set_var("CARGO_HOME", tmp.path().join("nonexistent"));
+        assert_eq!(read_cargo_build_target(tmp.path()), None);
     }
 }

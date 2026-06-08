@@ -11,7 +11,7 @@ that will run your WebAssembly code in the browser.
 
 To generate a new Rust Webpack project, we've used the [`rust-webpack`] npm template.
 
-[`rust-webpack`]: https://github.com/rustwasm/rust-webpack-template
+[`rust-webpack`]: https://github.com/drager/rust-webpack-template
 
 ```
 npm init rust-webpack your-package-name

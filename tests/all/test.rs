@@ -1,7 +1,7 @@
+use crate::utils::fixture;
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
 use std::env;
-use utils::fixture;
 
 #[test]
 fn it_can_run_node_tests() {
@@ -33,6 +33,7 @@ fn it_can_run_tests_with_different_wbg_test_and_wbg_versions() {
 #[cfg(any(
     all(target_os = "linux", target_arch = "x86_64"),
     all(target_os = "macos", target_arch = "x86_64"),
+    all(target_os = "macos", target_arch = "aarch64"),
     all(target_os = "windows", target_arch = "x86"),
     all(target_os = "windows", target_arch = "x86_64")
 ))]
@@ -44,6 +45,7 @@ fn it_can_run_browser_tests() {
         all(target_os = "linux", target_arch = "x86"),
         all(target_os = "linux", target_arch = "x86_64"),
         all(target_os = "macos", target_arch = "x86_64"),
+        all(target_os = "macos", target_arch = "aarch64"),
         all(target_os = "windows", target_arch = "x86"),
         all(target_os = "windows", target_arch = "x86_64")
     ));
@@ -104,6 +106,7 @@ fn it_can_run_failing_tests() {
     all(target_os = "linux", target_arch = "x86"),
     all(target_os = "linux", target_arch = "x86_64"),
     all(target_os = "macos", target_arch = "x86_64"),
+    all(target_os = "macos", target_arch = "aarch64"),
     all(target_os = "windows", target_arch = "x86"),
     all(target_os = "windows", target_arch = "x86_64")
 ))]
@@ -171,7 +174,7 @@ fn complains_about_missing_wasm_bindgen_test_dependency() {
                 description = "so awesome rust+wasm package"
                 license = "WTFPL"
                 name = "missing-wbg-test"
-                repository = "https://github.com/rustwasm/wasm-pack.git"
+                repository = "https://github.com/wasm-bindgen/wasm-pack.git"
                 version = "0.1.0"
 
                 [lib]
@@ -306,13 +309,11 @@ fn test_output_is_printed_once_in_both_stdout_and_failures() {
                 extern crate wasm_bindgen_test;
                 use wasm_bindgen::prelude::*;
                 use wasm_bindgen_test::*;
-
                 #[wasm_bindgen]
                 extern {
                     #[wasm_bindgen(js_namespace = console)]
                     fn log(s: &str);
                 }
-
                 #[wasm_bindgen_test]
                 fn yabba() {
                     log("YABBA DABBA DOO");
@@ -322,9 +323,7 @@ fn test_output_is_printed_once_in_both_stdout_and_failures() {
         )
         .install_local_wasm_bindgen();
     let _lock = fixture.lock();
-
-    // there will be only one log in stdout, and only one log in failures
-    let log_cnt = 1;
+    // With newer wasm-bindgen-test, logs only appear once in the failure output
     fixture
         .wasm_pack()
         .arg("test")
@@ -332,9 +331,7 @@ fn test_output_is_printed_once_in_both_stdout_and_failures() {
         .assert()
         .failure()
         .stdout(predicate::function(|out: &str| {
-            // but the out string will capture both stdout and failures,
-            // so we will get a log that count twice
-            out.matches("YABBA DABBA DOO").count() == log_cnt * 2
+            out.matches("YABBA DABBA DOO").count() == 1
         }));
 }
 

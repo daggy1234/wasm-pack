@@ -2,9 +2,9 @@
 
 pub mod webdriver;
 
+use crate::child;
 use crate::PBAR;
-use child;
-use failure::{self, ResultExt};
+use anyhow::{Context, Result};
 use std::ffi::OsStr;
 use std::path::Path;
 use std::process::Command;
@@ -16,7 +16,8 @@ pub fn cargo_test_wasm<I, K, V>(
     release: bool,
     envs: I,
     extra_options: &[String],
-) -> Result<(), failure::Error>
+    target_triple: &str,
+) -> Result<()>
 where
     I: IntoIterator<Item = (K, V)>,
     K: AsRef<OsStr>,
@@ -35,7 +36,7 @@ where
         cmd.arg("--release");
     }
 
-    cmd.arg("--target").arg("wasm32-unknown-unknown");
+    cmd.arg("--target").arg(target_triple);
 
     cmd.args(extra_options);
 

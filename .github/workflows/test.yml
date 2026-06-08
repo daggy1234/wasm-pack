@@ -1,5 +1,4 @@
 name: Tests
-
 on:
   push:
     branches:
@@ -7,11 +6,11 @@ on:
   pull_request:
     branches:
       - master
-
 jobs:
   test:
     name: Test
-
+    permissions:
+      contents: read
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -26,21 +25,18 @@ jobs:
           - build: windows-stable
             os: windows-latest
             rust: stable
-
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: nanasess/setup-chromedriver@master
-      - uses: actions-rs/toolchain@v1
+      - if: matrix.os == 'macos-latest'
+        run: brew install --cask firefox
+      - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.rust }}
-          override: true
-          target: wasm32-unknown-unknown
-      - uses: actions/setup-node@v2
-
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v3
       - name: Cache dependencies
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-dependencies
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/.crates.toml
@@ -49,15 +45,12 @@ jobs:
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             target
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
-
+          key: ${{ runner.os }}-build-${{ hashFiles('Cargo.lock') }}
       - name: Run Tests
-        run: cargo test --features "strict" --all --locked
+        run: cargo test --all --locked
         env:
           RUST_BACKTRACE: 1
-
       - name: Clippy
         run: cargo clippy
-
       - name: Cargo fmt
         run: cargo fmt --all -- --check

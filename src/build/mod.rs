@@ -1,14 +1,16 @@
 //! Building a Rust crate into a `.wasm` binary.
 
-use child;
-use command::build::BuildProfile;
-use emoji;
-use failure::{Error, ResultExt};
-use manifest::Crate;
+use crate::child;
+use crate::command::build::BuildProfile;
+use crate::emoji;
+use crate::manifest::Crate;
+use crate::PBAR;
+use anyhow::{anyhow, bail, Context, Result};
+use cargo_metadata::Message;
+use std::io::BufReader;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::str;
-use PBAR;
 
 pub mod wasm_target;
 
@@ -23,7 +25,7 @@ pub struct WasmPackVersion {
 }
 
 /// Ensure that `rustc` is present and that it is >= 1.30.0
-pub fn check_rustc_version() -> Result<String, Error> {
+pub fn check_rustc_version() -> Result<String> {
     let local_minor_version = rustc_minor_version();
     match local_minor_version {
         Some(mv) => {
@@ -60,7 +62,7 @@ fn rustc_minor_version() -> Option<u32> {
 }
 
 /// Checks and returns local and latest versions of wasm-pack
-pub fn check_wasm_pack_versions() -> Result<WasmPackVersion, Error> {
+pub fn check_wasm_pack_versions() -> Result<WasmPackVersion> {
     match wasm_pack_local_version() {
         Some(local) => Ok(WasmPackVersion {local, latest: Crate::return_wasm_pack_latest_version()?.unwrap_or_else(|| "".to_string())}),
         None => bail!("We can't figure out what your wasm-pack version is, make sure the installation path is correct.")
@@ -72,17 +74,35 @@ fn wasm_pack_local_version() -> Option<String> {
     Some(output.to_string())
 }
 
-/// Run `cargo build` targetting `wasm32-unknown-unknown`.
+/// Returns true for tier-3 wasm targets that have no rustup-prebuilt sysroot
+/// and must be built via `-Z build-std`. Currently this is the wasm64 family
+/// (`wasm64-unknown-unknown`, future `wasm64-*` variants).
+pub fn is_tier3_wasm(target_triple: &str) -> bool {
+    target_triple.starts_with("wasm64")
+}
+
+/// Run `cargo build` for Wasm with config derived from the given `BuildProfile`.
 pub fn cargo_build_wasm(
     path: &Path,
     profile: BuildProfile,
     extra_options: &[String],
-) -> Result<(), Error> {
-    let msg = format!("{}Compiling to Wasm...", emoji::CYCLONE);
+    target_triple: &str,
+    panic_unwind: bool,
+) -> Result<String> {
+    let msg = if panic_unwind {
+        format!("{}Compiling to Wasm (with panic=unwind)...", emoji::CYCLONE)
+    } else {
+        format!("{}Compiling to Wasm...", emoji::CYCLONE)
+    };
     PBAR.info(&msg);
 
     let mut cmd = Command::new("cargo");
-    cmd.current_dir(path).arg("build").arg("--lib");
+    cmd.current_dir(path);
+    // `+nightly` must be the first argument to cargo.
+    if panic_unwind {
+        cmd.arg("+nightly");
+    }
+    cmd.arg("build").arg("--lib");
 
     if PBAR.quiet() {
         cmd.arg("--quiet");
@@ -104,12 +124,88 @@ pub fn cargo_build_wasm(
             // Plain cargo builds use the dev cargo profile, which includes
             // debug info by default.
         }
+        BuildProfile::Custom(arg) => {
+            cmd.arg("--profile").arg(arg);
+        }
     }
 
-    cmd.arg("--target").arg("wasm32-unknown-unknown");
-    cmd.args(extra_options);
-    child::run(cmd, "cargo build").context("Compiling your crate to WebAssembly failed")?;
-    Ok(())
+    cmd.env("CARGO_BUILD_TARGET", target_triple);
+
+    if panic_unwind {
+        cmd.arg("-Z").arg("build-std=std,panic_unwind");
+
+        // Append `-Cpanic=unwind` to any user-provided RUSTFLAGS.
+        let existing = std::env::var("RUSTFLAGS").unwrap_or_default();
+        let combined = if existing.is_empty() {
+            "-Cpanic=unwind".to_string()
+        } else {
+            format!("{existing} -Cpanic=unwind")
+        };
+        cmd.env("RUSTFLAGS", combined);
+    }
+
+    // The `cargo` command is executed inside the directory at `path`, so relative paths set via extra options won't work.
+    // To remedy the situation, all detected paths are converted to absolute paths.
+    let mut handle_path = false;
+    let extra_options_with_absolute_paths = extra_options
+        .iter()
+        .map(|option| -> Result<String> {
+            let value = if handle_path && Path::new(option).is_relative() {
+                std::env::current_dir()?
+                    .join(option)
+                    .to_str()
+                    .ok_or_else(|| anyhow!("path contains non-UTF-8 characters"))?
+                    .to_string()
+            } else {
+                option.to_string()
+            };
+            handle_path = matches!(&**option, "--target-dir" | "--out-dir" | "--manifest-path");
+            Ok(value)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    cmd.args(extra_options_with_absolute_paths);
+
+    cmd.arg("--message-format=json");
+
+    let mut cargo_process = cmd.stdout(Stdio::piped()).spawn()?;
+
+    let final_artifact =
+        Message::parse_stream(BufReader::new(cargo_process.stdout.as_mut().unwrap()))
+            .filter_map(|msg| {
+                match msg {
+                    Ok(Message::CompilerArtifact(artifact)) => return Some(artifact),
+                    Ok(Message::CompilerMessage(msg)) => eprintln!("{msg}"),
+                    Ok(Message::TextLine(text)) => eprintln!("{text}"),
+                    Err(err) => log::error!("Couldn't parse cargo message: {err}"),
+                    _ => {} // ignore messages irrelevant to the user
+                }
+                None
+            })
+            .last();
+
+    if !cargo_process
+        .wait()
+        .context("Failed to wait for cargo build process")?
+        .success()
+    {
+        bail!("`cargo build` failed, see the output above for details");
+    }
+
+    let wasm_files: Vec<_> = final_artifact
+        .context("Expected at least one compiler artifact in the output of `cargo build`")?
+        .filenames
+        .into_iter()
+        .filter(|path| path.extension() == Some("wasm"))
+        .collect();
+
+    match <[_; 1]>::try_from(wasm_files) {
+        Ok([filename]) => Ok(filename.into_string()),
+        Err(filenames) => {
+            bail!(
+                "Expected exactly one .wasm file in the compiler artifact, but found {filenames:?}"
+            )
+        }
+    }
 }
 
 /// Runs `cargo build --tests` targeting `wasm32-unknown-unknown`.
@@ -125,14 +221,24 @@ pub fn cargo_build_wasm(
 /// * `path`: Path to the crate directory to build tests.
 /// * `debug`: Whether to build tests in `debug` mode.
 /// * `extra_options`: Additional parameters to pass to `cargo` when building tests.
+/// * `target_triple`: The wasm target triple to build for (e.g.
+///   `wasm32-unknown-unknown` or `wasm64-unknown-unknown`).
+/// * `panic_unwind`: Whether to build tests with `panic=unwind` via the nightly
+///   toolchain and `-Z build-std`.
 pub fn cargo_build_wasm_tests(
     path: &Path,
     debug: bool,
     extra_options: &[String],
-) -> Result<(), Error> {
+    target_triple: &str,
+    panic_unwind: bool,
+) -> Result<()> {
     let mut cmd = Command::new("cargo");
-
-    cmd.current_dir(path).arg("build").arg("--tests");
+    cmd.current_dir(path);
+    // `+nightly` must be the first argument to cargo.
+    if panic_unwind {
+        cmd.arg("+nightly");
+    }
+    cmd.arg("build").arg("--tests");
 
     if PBAR.quiet() {
         cmd.arg("--quiet");
@@ -142,10 +248,37 @@ pub fn cargo_build_wasm_tests(
         cmd.arg("--release");
     }
 
-    cmd.arg("--target").arg("wasm32-unknown-unknown");
+    cmd.env("CARGO_BUILD_TARGET", target_triple);
+
+    if panic_unwind {
+        cmd.arg("-Z").arg("build-std=std,panic_unwind");
+
+        let existing = std::env::var("RUSTFLAGS").unwrap_or_default();
+        let combined = if existing.is_empty() {
+            "-Cpanic=unwind".to_string()
+        } else {
+            format!("{existing} -Cpanic=unwind")
+        };
+        cmd.env("RUSTFLAGS", combined);
+    }
 
     cmd.args(extra_options);
 
     child::run(cmd, "cargo build").context("Compilation of your program failed")?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tier3_wasm_detection() {
+        assert!(is_tier3_wasm("wasm64-unknown-unknown"));
+        assert!(is_tier3_wasm("wasm64-wasi"));
+        assert!(!is_tier3_wasm("wasm32-unknown-unknown"));
+        assert!(!is_tier3_wasm("wasm32-wasi"));
+        assert!(!is_tier3_wasm("wasm32-unknown-emscripten"));
+        assert!(!is_tier3_wasm("x86_64-unknown-linux-gnu"));
+    }
 }

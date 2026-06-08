@@ -1,20 +1,19 @@
 #![allow(clippy::redundant_closure, clippy::redundant_pattern_matching)]
 
-extern crate atty;
+extern crate anyhow;
+extern crate clap;
 extern crate env_logger;
-#[macro_use]
-extern crate failure;
 extern crate human_panic;
 extern crate log;
-extern crate structopt;
 extern crate wasm_pack;
 extern crate which;
 
+use anyhow::Result;
+use clap::Parser;
 use std::env;
 use std::panic;
 use std::sync::mpsc;
 use std::thread;
-use structopt::StructOpt;
 use wasm_pack::{
     build::{self, WasmPackVersion},
     command::run_wasm_pack,
@@ -23,7 +22,7 @@ use wasm_pack::{
 
 mod installer;
 
-fn background_check_for_updates() -> mpsc::Receiver<Result<WasmPackVersion, failure::Error>> {
+fn background_check_for_updates() -> mpsc::Receiver<Result<WasmPackVersion>> {
     let (sender, receiver) = mpsc::channel();
 
     let _detached_thread = thread::spawn(move || {
@@ -51,14 +50,14 @@ fn main() {
 
     if let Err(e) = run() {
         eprintln!("Error: {}", e);
-        for cause in e.iter_causes() {
+        for cause in e.chain() {
             eprintln!("Caused by: {}", cause);
         }
         ::std::process::exit(1);
     }
 }
 
-fn run() -> Result<(), failure::Error> {
+fn run() -> Result<()> {
     let wasm_pack_version = background_check_for_updates();
 
     // Deprecate `init`
@@ -79,7 +78,7 @@ fn run() -> Result<(), failure::Error> {
         }
     }
 
-    let args = Cli::from_args();
+    let args = Cli::parse();
 
     PBAR.set_log_level(args.log_level);
 
@@ -93,7 +92,7 @@ fn run() -> Result<(), failure::Error> {
         match wasm_pack_version {
             Ok(wasm_pack_version) =>
                 PBAR.warn(&format!("There's a newer version of wasm-pack available, the new version is: {}, you are using: {}. \
-                To update, navigate to: https://rustwasm.github.io/wasm-pack/installer/", wasm_pack_version.latest, wasm_pack_version.local)),
+                To update, navigate to: https://wasm-bindgen.github.io/wasm-pack/installer/", wasm_pack_version.latest, wasm_pack_version.local)),
             Err(err) => PBAR.warn(&format!("{}", err))
         }
     }
@@ -102,17 +101,14 @@ fn run() -> Result<(), failure::Error> {
 }
 
 fn setup_panic_hooks() {
-    let meta = human_panic::Metadata {
-        version: env!("CARGO_PKG_VERSION").into(),
-        name: env!("CARGO_PKG_NAME").into(),
-        authors: env!("CARGO_PKG_AUTHORS").replace(":", ", ").into(),
-        homepage: env!("CARGO_PKG_HOMEPAGE").into(),
-    };
+    let meta = human_panic::Metadata::new(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
+        .authors(env!("CARGO_PKG_AUTHORS").replace(":", ", "))
+        .homepage(env!("CARGO_PKG_HOMEPAGE"));
 
     let default_hook = panic::take_hook();
 
     if let Err(_) = env::var("RUST_BACKTRACE") {
-        panic::set_hook(Box::new(move |info: &panic::PanicInfo| {
+        panic::set_hook(Box::new(move |info| {
             // First call the default hook that prints to standard error.
             default_hook(info);
 

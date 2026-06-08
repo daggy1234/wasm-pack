@@ -11,4 +11,4 @@ Be sure to have read and followed the [Prerequisites](../../prerequisites/index.
 [Rust]: https://www.rust-lang.org
 [Node.js]: https://nodejs.org
 [npm]: https://npmjs.com
-[`rust-webpack-template`]: https://github.com/rustwasm/rust-webpack-template
+[`rust-webpack-template`]: https://github.com/drager/rust-webpack-template

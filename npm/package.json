@@ -1,14 +1,23 @@
 {
   "name": "wasm-pack",
-  "version": "0.10.3",
+  "version": "0.15.0",
   "description": "📦✨ your favorite rust -> wasm workflow tool!",
   "main": "binary.js",
+  "files": [
+    "binary.js",
+    "install.js",
+    "run.js",
+    "README.md"
+  ],
   "scripts": {
     "postinstall": "node ./install.js"
   },
+  "bin": {
+    "wasm-pack": "./run.js"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rustwasm/wasm-pack.git"
+    "url": "git+https://github.com/wasm-bindgen/wasm-pack.git"
   },
   "keywords": [
     "wasm",
@@ -19,13 +28,16 @@
     "npm",
     "package"
   ],
-  "author": "Ashley Williams <ashley666ashley@gmail.com>",
+  "author": "wasm-bindgen Contributors",
   "license": "MIT OR Apache-2.0",
   "bugs": {
-    "url": "https://github.com/rustwasm/wasm-pack/issues"
+    "url": "https://github.com/wasm-bindgen/wasm-pack/issues"
   },
-  "homepage": "https://github.com/rustwasm/wasm-pack#readme",
+  "homepage": "https://github.com/wasm-bindgen/wasm-pack#readme",
+  "engines": {
+    "node": ">=16"
+  },
   "dependencies": {
-    "binary-install": "^1.0.1"
+    "tar": "^7.5.3"
   }
 }

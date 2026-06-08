@@ -1,91 +1,91 @@
 //! Implementation of the `wasm-pack test` command.
 
+use crate::build;
+use crate::cache;
+use crate::command::utils::get_crate_path;
+use crate::install::{self, InstallMode, Tool};
+use crate::lockfile::Lockfile;
+use crate::manifest;
+use crate::test::{self, webdriver};
+use anyhow::{bail, Result};
 use binary_install::Cache;
-use build;
-use cache;
-use command::utils::get_crate_path;
+use clap::Args;
 use console::style;
-use failure::Error;
-use install::{self, InstallMode, Tool};
-use lockfile::Lockfile;
 use log::info;
-use manifest;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Instant;
-use structopt::clap::AppSettings;
-use test::{self, webdriver};
 
-#[derive(Debug, Default, StructOpt)]
-#[structopt(
-    // Allows unknown `--option`s to be parsed as positional arguments, so we can forward it to `cargo`.
-    setting = AppSettings::AllowLeadingHyphen,
-
-    // Allows `--` to be parsed as an argument, so we can forward it to `cargo`.
-    setting = AppSettings::TrailingVarArg,
-)]
+#[derive(Debug, Default, Args)]
+#[command(allow_hyphen_values = true, trailing_var_arg = true)]
 /// Everything required to configure the `wasm-pack test` command.
 pub struct TestOptions {
-    #[structopt(long = "node")]
+    #[clap(long = "node")]
     /// Run the tests in Node.js.
     pub node: bool,
 
-    #[structopt(long = "firefox")]
+    #[clap(long = "firefox")]
     /// Run the tests in Firefox. This machine must have a Firefox installation.
     /// If the `geckodriver` WebDriver client is not on the `$PATH`, and not
     /// specified with `--geckodriver`, then `wasm-pack` will download a local
     /// copy.
     pub firefox: bool,
 
-    #[structopt(long = "geckodriver", parse(from_os_str))]
+    #[clap(long = "geckodriver")]
     /// The path to the `geckodriver` WebDriver client for testing in
     /// Firefox. Implies `--firefox`.
     pub geckodriver: Option<PathBuf>,
 
-    #[structopt(long = "chrome")]
+    #[clap(long = "chrome")]
     /// Run the tests in Chrome. This machine must have a Chrome installation.
     /// If the `chromedriver` WebDriver client is not on the `$PATH`, and not
     /// specified with `--chromedriver`, then `wasm-pack` will download a local
     /// copy.
     pub chrome: bool,
 
-    #[structopt(long = "chromedriver", parse(from_os_str))]
+    #[clap(long = "chromedriver")]
     /// The path to the `chromedriver` WebDriver client for testing in
     /// Chrome. Implies `--chrome`.
     pub chromedriver: Option<PathBuf>,
 
-    #[structopt(long = "safari")]
+    #[clap(long = "safari")]
     /// Run the tests in Safari. This machine must have a Safari installation,
     /// and the `safaridriver` WebDriver client must either be on the `$PATH` or
     /// specified explicitly with the `--safaridriver` flag. `wasm-pack` cannot
     /// download the `safaridriver` WebDriver client for you.
     pub safari: bool,
 
-    #[structopt(long = "safaridriver", parse(from_os_str))]
+    #[clap(long = "safaridriver")]
     /// The path to the `safaridriver` WebDriver client for testing in
     /// Safari. Implies `--safari`.
     pub safaridriver: Option<PathBuf>,
 
-    #[structopt(long = "headless")]
+    #[clap(long = "headless")]
     /// When running browser tests, run the browser in headless mode without any
     /// UI or windows.
     pub headless: bool,
 
-    #[structopt(long = "mode", short = "m", default_value = "normal")]
+    #[clap(long = "mode", short = 'm', default_value = "normal")]
     /// Sets steps to be run. [possible values: no-install, normal]
     pub mode: InstallMode,
 
-    #[structopt(long = "release", short = "r")]
+    #[clap(long = "release", short = 'r')]
     /// Build with the release profile.
     pub release: bool,
 
+    #[clap(long = "panic-unwind")]
+    /// Build tests with panic=unwind. Requires the nightly Rust toolchain;
+    /// uses `-Z build-std` to rebuild `std` with `-Cpanic=unwind`. The nightly
+    /// toolchain, `rust-src` component, and nightly `wasm32-unknown-unknown`
+    /// target will be installed via `rustup` if not already present.
+    pub panic_unwind: bool,
+
     /// Path to the Rust crate, and extra options to pass to `cargo test`.
     ///
-    /// If the path is not provided, this command searches up the path from the current dirctory
+    /// If the path is not provided, this command searches up the path from the current directory.
     ///
     /// This is a workaround to allow wasm pack to provide the same command line interface as `cargo`.
-    /// See <https://github.com/rustwasm/wasm-pack/pull/851> for more information.
-    #[structopt(allow_hyphen_values = true)]
+    /// See <https://github.com/wasm-bindgen/wasm-pack/pull/851> for more information.
     pub path_and_extra_options: Vec<String>,
 }
 
@@ -104,20 +104,23 @@ pub struct Test {
     safaridriver: Option<PathBuf>,
     headless: bool,
     release: bool,
+    panic_unwind: bool,
     test_runner_path: Option<PathBuf>,
     extra_options: Vec<String>,
+    target_triple: String,
 }
 
-type TestStep = fn(&mut Test) -> Result<(), Error>;
+type TestStep = fn(&mut Test) -> Result<()>;
 
 impl Test {
     /// Construct a test command from the given options.
-    pub fn try_from_opts(test_opts: TestOptions) -> Result<Self, Error> {
+    pub fn try_from_opts(test_opts: TestOptions) -> Result<Self> {
         let TestOptions {
             node,
             mode,
             headless,
             release,
+            panic_unwind,
             chrome,
             chromedriver,
             firefox,
@@ -145,6 +148,21 @@ impl Test {
         let crate_data = manifest::CrateData::new(&crate_path, None)?;
         let any_browser = chrome || firefox || safari;
 
+        // Same precedence cargo uses, so wasm-pack and cargo agree on the
+        // target. See `command::build::read_cargo_build_target`.
+        let target_triple = {
+            let mut iter = extra_options.iter();
+            let from_args = iter
+                .by_ref()
+                .find(|o| o.as_str() == "--target")
+                .and_then(|_| iter.next())
+                .cloned();
+            from_args
+                .or_else(|| std::env::var("CARGO_BUILD_TARGET").ok())
+                .or_else(|| crate::command::build::read_cargo_build_target(&crate_path))
+                .unwrap_or_else(|| "wasm32-unknown-unknown".to_string())
+        };
+
         if !node && !any_browser {
             bail!("Must specify at least one of `--node`, `--chrome`, `--firefox`, or `--safari`")
         }
@@ -170,7 +188,9 @@ impl Test {
             safaridriver,
             headless,
             release,
+            panic_unwind,
             test_runner_path: None,
+            target_triple,
             extra_options,
         })
     }
@@ -181,7 +201,7 @@ impl Test {
     }
 
     /// Execute this test command.
-    pub fn run(mut self) -> Result<(), Error> {
+    pub fn run(mut self) -> Result<()> {
         let process_steps = self.get_process_steps();
 
         let started = Instant::now();
@@ -249,21 +269,32 @@ impl Test {
         }
     }
 
-    fn step_check_rustc_version(&mut self) -> Result<(), Error> {
+    fn step_check_rustc_version(&mut self) -> Result<()> {
+        // Stable rustc version is irrelevant when --panic-unwind is set.
+        if self.panic_unwind {
+            info!("Skipping rustc version check (using nightly via --panic-unwind).");
+            return Ok(());
+        }
         info!("Checking rustc version...");
         let _ = build::check_rustc_version()?;
         info!("Rustc version is correct.");
         Ok(())
     }
 
-    fn step_check_for_wasm_target(&mut self) -> Result<(), Error> {
+    fn step_check_for_wasm_target(&mut self) -> Result<()> {
+        if self.panic_unwind {
+            info!("Checking nightly toolchain prerequisites for panic=unwind...");
+            build::wasm_target::check_nightly_prerequisites()?;
+            info!("Nightly prerequisites check was successful.");
+            return Ok(());
+        }
         info!("Adding wasm-target...");
-        build::wasm_target::check_for_wasm32_target()?;
+        build::wasm_target::check_for_wasm_target(&self.target_triple)?;
         info!("Adding wasm-target was successful.");
         Ok(())
     }
 
-    fn step_build_tests(&mut self) -> Result<(), Error> {
+    fn step_build_tests(&mut self) -> Result<()> {
         info!("Compiling tests to wasm...");
 
         // If the user has run `wasm-pack test -- --features "f1" -- test_name`, then we want to only pass through
@@ -274,13 +305,19 @@ impl Test {
             } else {
                 &self.extra_options
             };
-        build::cargo_build_wasm_tests(&self.crate_path, !self.release, extra_options)?;
+        build::cargo_build_wasm_tests(
+            &self.crate_path,
+            !self.release,
+            extra_options,
+            &self.target_triple,
+            self.panic_unwind,
+        )?;
 
         info!("Finished compiling tests to wasm.");
         Ok(())
     }
 
-    fn step_install_wasm_bindgen(&mut self) -> Result<(), Error> {
+    fn step_install_wasm_bindgen(&mut self) -> Result<()> {
         info!("Identifying wasm-bindgen dependency...");
         let lockfile = Lockfile::new(&self.crate_data)?;
         let bindgen_version = lockfile.require_wasm_bindgen()?;
@@ -315,26 +352,35 @@ impl Test {
         Ok(())
     }
 
-    fn step_test_node(&mut self) -> Result<(), Error> {
+    fn step_test_node(&mut self) -> Result<()> {
         assert!(self.node);
         info!("Running tests in node...");
+        let runner_env = format!(
+            "CARGO_TARGET_{}_RUNNER",
+            self.target_triple.replace('-', "_").to_uppercase()
+        );
+        let runner_path = self
+            .test_runner_path
+            .as_ref()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
         test::cargo_test_wasm(
             &self.crate_path,
             self.release,
             vec![
-                (
-                    "CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER",
-                    &**self.test_runner_path.as_ref().unwrap(),
-                ),
-                ("WASM_BINDGEN_TEST_ONLY_NODE", "1".as_ref()),
+                (runner_env, runner_path),
+                ("WASM_BINDGEN_TEST_ONLY_NODE".to_string(), "1".to_string()),
             ],
             &self.extra_options,
+            &self.target_triple,
         )?;
         info!("Finished running tests in node.");
         Ok(())
     }
 
-    fn step_get_chromedriver(&mut self) -> Result<(), Error> {
+    fn step_get_chromedriver(&mut self) -> Result<()> {
         assert!(self.chrome && self.chromedriver.is_none());
 
         self.chromedriver = Some(webdriver::get_or_install_chromedriver(
@@ -344,22 +390,27 @@ impl Test {
         Ok(())
     }
 
-    fn step_test_chrome(&mut self) -> Result<(), Error> {
+    fn step_test_chrome(&mut self) -> Result<()> {
         let chromedriver = self.chromedriver.as_ref().unwrap().display().to_string();
-        let chromedriver = chromedriver.as_str();
         info!(
             "Running tests in Chrome with chromedriver at {}",
             chromedriver
         );
 
         let mut envs = self.webdriver_env();
-        envs.push(("CHROMEDRIVER", chromedriver));
+        envs.push(("CHROMEDRIVER".to_string(), chromedriver));
 
-        test::cargo_test_wasm(&self.crate_path, self.release, envs, &self.extra_options)?;
+        test::cargo_test_wasm(
+            &self.crate_path,
+            self.release,
+            envs,
+            &self.extra_options,
+            &self.target_triple,
+        )?;
         Ok(())
     }
 
-    fn step_get_geckodriver(&mut self) -> Result<(), Error> {
+    fn step_get_geckodriver(&mut self) -> Result<()> {
         assert!(self.firefox && self.geckodriver.is_none());
 
         self.geckodriver = Some(webdriver::get_or_install_geckodriver(
@@ -369,52 +420,72 @@ impl Test {
         Ok(())
     }
 
-    fn step_test_firefox(&mut self) -> Result<(), Error> {
+    fn step_test_firefox(&mut self) -> Result<()> {
         let geckodriver = self.geckodriver.as_ref().unwrap().display().to_string();
-        let geckodriver = geckodriver.as_str();
         info!(
             "Running tests in Firefox with geckodriver at {}",
             geckodriver
         );
 
         let mut envs = self.webdriver_env();
-        envs.push(("GECKODRIVER", geckodriver));
+        envs.push(("GECKODRIVER".to_string(), geckodriver));
 
-        test::cargo_test_wasm(&self.crate_path, self.release, envs, &self.extra_options)?;
+        test::cargo_test_wasm(
+            &self.crate_path,
+            self.release,
+            envs,
+            &self.extra_options,
+            &self.target_triple,
+        )?;
         Ok(())
     }
 
-    fn step_get_safaridriver(&mut self) -> Result<(), Error> {
+    fn step_get_safaridriver(&mut self) -> Result<()> {
         assert!(self.safari && self.safaridriver.is_none());
 
         self.safaridriver = Some(webdriver::get_safaridriver()?);
         Ok(())
     }
 
-    fn step_test_safari(&mut self) -> Result<(), Error> {
+    fn step_test_safari(&mut self) -> Result<()> {
         let safaridriver = self.safaridriver.as_ref().unwrap().display().to_string();
-        let safaridriver = safaridriver.as_str();
         info!(
             "Running tests in Safari with safaridriver at {}",
             safaridriver
         );
 
         let mut envs = self.webdriver_env();
-        envs.push(("SAFARIDRIVER", safaridriver));
+        envs.push(("SAFARIDRIVER".to_string(), safaridriver));
 
-        test::cargo_test_wasm(&self.crate_path, self.release, envs, &self.extra_options)?;
+        test::cargo_test_wasm(
+            &self.crate_path,
+            self.release,
+            envs,
+            &self.extra_options,
+            &self.target_triple,
+        )?;
         Ok(())
     }
 
-    fn webdriver_env(&self) -> Vec<(&'static str, &str)> {
-        let test_runner = self.test_runner_path.as_ref().unwrap().to_str().unwrap();
+    fn webdriver_env(&self) -> Vec<(String, String)> {
+        let test_runner = self
+            .test_runner_path
+            .as_ref()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
         info!("Using wasm-bindgen test runner at {}", test_runner);
+        let runner_env = format!(
+            "CARGO_TARGET_{}_RUNNER",
+            self.target_triple.replace('-', "_").to_uppercase()
+        );
         let mut envs = vec![
-            ("CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER", test_runner),
-            ("WASM_BINDGEN_TEST_ONLY_WEB", "1"),
+            (runner_env, test_runner),
+            ("WASM_BINDGEN_TEST_ONLY_WEB".to_string(), "1".to_string()),
         ];
         if !self.headless {
-            envs.push(("NO_HEADLESS", "1"));
+            envs.push(("NO_HEADLESS".to_string(), "1".to_string()));
         }
         envs
     }

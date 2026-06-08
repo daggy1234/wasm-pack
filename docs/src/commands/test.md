@@ -1,6 +1,6 @@
 # wasm-pack test
 
-The `wasm-pack test` command wraps the [wasm-bindgen-test-runner](https://rustwasm.github.io/wasm-bindgen/wasm-bindgen-test/index.html)
+The `wasm-pack test` command wraps the [wasm-bindgen-test-runner](https://wasm-bindgen.github.io/wasm-bindgen/wasm-bindgen-test)
 CLI allowing you to run wasm tests in different browsers without needing to install the different
 webdrivers yourself.
 
@@ -37,6 +37,16 @@ Choose where to run your tests by passing in any combination of testing environm
 
 ```
 wasm-pack test --node --firefox --chrome --safari --headless
+```
+
+## Panic strategy
+
+The `test` command accepts the `--panic-unwind` flag, which builds the test
+binary with `panic=unwind` via the nightly toolchain and `-Z build-std`. See
+the [`build` command's documentation](./build.md#panic-strategy) for details.
+
+```
+wasm-pack test --node --panic-unwind
 ```
 
 ## Extra options
